@@ -313,6 +313,11 @@ function known(key, rec) { return !!(CATMAP[key] || (rec && rec.n)); }
 /* ---------- state ---------- */
 var role = LS.get('wl_role', null);
 if (ROLES.indexOf(role) < 0) role = null;
+/* Shop screen is locked behind its own code (PBKDF2 hash, code itself is not stored in the app) */
+var SHOP_HASH = 'c6aeca6b187e99a13885acb6fd26b1e43e0773be7293fb46';
+var shopMsg = '', shopBusy = false;
+function shopOk() { return LS.get('wl_shop_ok', '') === SHOP_HASH; }
+if (role === 'shop' && !shopOk()) role = null;
 var names = Object.assign({ c1: 'Crew 1', c2: 'Crew 2', c3: 'Crew 3' }, LS.get('wl_names', {}));
 var cache = LS.get('wl_cache', {});
 var pending = LS.get('wl_pending', []);
@@ -946,7 +951,7 @@ function renderMainSoon() { clearTimeout(mainTimer); mainTimer = setTimeout(func
 function render() {
   renderHeader(); renderNav(); renderTools(); renderMain(); updateSync();
   if (!TEAM || !TEAM.ok) { if (!sheet || sheet.type !== 'team') { sheet = { type: 'team', forced: true }; showSheet(); } else if (!(document.activeElement && document.activeElement.id === 'team-code')) renderSheet(); return; }
-  if (!role) { if (!sheet || sheet.type !== 'picker') { sheet = { type: 'picker', forced: true }; showSheet(); } else renderSheet(); return; }
+  if (!role) { if (!sheet || (sheet.type !== 'picker' && sheet.type !== 'shopcode')) { sheet = { type: 'picker', forced: true }; showSheet(); } else if (!(document.activeElement && document.activeElement.id === 'shop-code')) renderSheet(); return; }
   if (sheet) {
     var ae = document.activeElement;
     if (ae && sheet.type !== 'item' && ae.closest && ae.closest('#sheet')) return;
@@ -1007,7 +1012,7 @@ function photoSheetHTML() {
 }
 function pickerHTML() {
   var h = '<div class="grab"></div><div class="stack"><img class="biglogo" alt="Liberty" src="' + LOGO_SRC + '"><div><h2>Who is using this phone?</h2><p class="meta" style="margin:0">Pick once. You can switch any time from the button at the top.</p></div><div class="roles">' +
-    '<button type="button" class="rolebtn shop' + (role === 'shop' ? ' on' : '') + '" data-act="role" data-role="shop">Shop</button>' +
+    '<button type="button" class="rolebtn shop' + (role === 'shop' ? ' on' : '') + '" data-act="role" data-role="shop">Shop' + (shopOk() ? '' : ' <small style="font-family:var(--font-body);font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;opacity:.75">\u00b7 code needed</small>') + '</button>' +
     CREWS.map(function (c) { return '<button type="button" class="rolebtn' + (role === c ? ' on' : '') + '" data-act="role" data-role="' + c + '">' + esc(names[c]) + '</button>'; }).join('') + '</div>' +
     '<div><label class="lbl">Crew names</label><div class="names">' + CREWS.map(function (c) {
       return '<input id="nm-' + c + '" class="field" type="text" maxlength="30" value="' + esc(names[c]) + '" aria-label="Name for ' + c + '">';
@@ -1016,6 +1021,27 @@ function pickerHTML() {
   h += '<div class="foot"><button type="button" class="btn" data-act="savenames">Save names</button>' + (sheet && sheet.forced ? '' : '<button type="button" class="btn primary" data-act="close">Done</button>') + '</div>' +
     '<button type="button" class="btn ghost" data-act="leaveteam" style="align-self:center">Use a different team code</button></div>';
   return h;
+}
+async function shopHash(code) {
+  var enc = new TextEncoder();
+  var key = await crypto.subtle.importKey('raw', enc.encode(normCode(code)), 'PBKDF2', false, ['deriveBits']);
+  var bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode('liberty-parts-shop'), iterations: 150000 }, key, 192);
+  return Array.prototype.map.call(new Uint8Array(bits), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+}
+async function unlockShop(code) {
+  if (!normCode(code)) { shopMsg = 'Enter the shop code.'; renderSheet(); return; }
+  shopBusy = true; shopMsg = ''; renderSheet();
+  var h = '';
+  try { h = await shopHash(code); } catch (e) { h = ''; }
+  shopBusy = false;
+  if (h === SHOP_HASH) { LS.set('wl_shop_ok', SHOP_HASH); setRole('shop'); toast('Shop unlocked on this phone'); }
+  else { shopMsg = h ? 'That shop code is not right.' : 'This phone could not check the code. Open the app from its https link.'; renderSheet(); var sc = $('shop-code'); if (sc) { sc.value = ''; sc.focus(); } }
+}
+function shopCodeHTML() {
+  return '<div class="grab"></div><div class="stack"><div><h2>Shop code</h2><p class="meta" style="margin:0">The Shop screen is locked. Enter the shop code once on this phone.</p></div>' +
+    '<div><label class="lbl" for="shop-code">Shop code</label><input id="shop-code" class="field" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" maxlength="40"' + (shopBusy ? ' disabled' : '') + '></div>' +
+    (shopMsg ? '<div class="banner-st s-need">' + esc(shopMsg) + '</div>' : '') +
+    '<div class="foot"><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-act="shopunlock"' + (shopBusy ? ' disabled' : '') + '>' + (shopBusy ? 'Checking\u2026' : 'Unlock') + '</button></div></div>';
 }
 function teamSheetHTML() {
   return '<div class="grab"></div><div class="stack"><img class="biglogo" alt="Liberty" src="' + LOGO_SRC + '"><div><h2>Enter your team code</h2><p class="meta" style="margin:0">Get the code from the shop. You only enter it once on this phone.</p></div>' +
@@ -1077,7 +1103,7 @@ function shipSheetHTML() {
 function renderSheet() {
   if (!sheet) return;
   var s = $('sheet'), t = sheet.type;
-  s.innerHTML = t === 'team' ? teamSheetHTML() : t === 'item' ? itemSheetHTML() : t === 'picker' ? pickerHTML() : t === 'add' ? addSheetHTML() : t === 'photo' ? photoSheetHTML() : t === 'cats' ? catsSheetHTML() : t === 'shipreview' ? shipReviewHTML() : t === 'ship' ? shipSheetHTML() : textSheetHTML();
+  s.innerHTML = t === 'team' ? teamSheetHTML() : t === 'shopcode' ? shopCodeHTML() : t === 'item' ? itemSheetHTML() : t === 'picker' ? pickerHTML() : t === 'add' ? addSheetHTML() : t === 'photo' ? photoSheetHTML() : t === 'cats' ? catsSheetHTML() : t === 'shipreview' ? shipReviewHTML() : t === 'ship' ? shipSheetHTML() : textSheetHTML();
 }
 function showSheet() { renderSheet(); $('sheet').hidden = false; $('scrim').hidden = false; if (sheet && sheet.type === 'text') { var b = $('txt-box'); if (b) { b.focus(); b.select(); } } }
 function closeSheet() {
@@ -1234,7 +1260,8 @@ document.addEventListener('click', function (ev) {
   if (!el) return;
   var a = el.getAttribute('data-act'), d = el.dataset;
   if (a === 'picker') { sheet = { type: 'picker' }; showSheet(); }
-  else if (a === 'role') setRole(d.role);
+  else if (a === 'role') { if (d.role === 'shop' && !shopOk()) { shopMsg = ''; sheet = { type: 'shopcode', prev: sheet }; showSheet(); var sc = $('shop-code'); if (sc) sc.focus(); } else setRole(d.role); }
+  else if (a === 'shopunlock') { var sci = $('shop-code'); unlockShop(sci ? sci.value : ''); }
   else if (a === 'savenames') setNames();
   else if (a === 'jointeam') { var tc = $('team-code'); joinTeam(tc ? tc.value : ''); }
   else if (a === 'leaveteam') {
@@ -1307,10 +1334,10 @@ $('ph-file').addEventListener('change', async function (e) {
   try { toast('Saving photo…'); setPhoto(key, await photoFromFile(f)); toast('Photo saved'); } catch (err) { toast('Could not read that picture'); }
 });
 $('q').addEventListener('input', function (e) { q = e.target.value; renderMain(); });
-document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); if (e.key === 'Enter' && e.target && e.target.id === 'team-code') joinTeam(e.target.value); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); if (e.key === 'Enter' && e.target && e.target.id === 'team-code') joinTeam(e.target.value); if (e.key === 'Enter' && e.target && e.target.id === 'shop-code') unlockShop(e.target.value); });
 window.addEventListener('resize', syncTopH);
 
-if (window.__WL_TEST__) window.__wl = { setPhoto: setPhoto, hasPhoto: hasPhoto, photoSrc: photoSrc, pidx: pidx, team: function () { return TEAM; }, teamIdFor: teamIdFor };
+if (window.__WL_TEST__) window.__wl = { setPhoto: setPhoto, hasPhoto: hasPhoto, photoSrc: photoSrc, pidx: pidx, team: function () { return TEAM; }, teamIdFor: teamIdFor, shopHash: shopHash, role: function () { return role; } };
 
 /* ---------- boot ---------- */
 (function () {
