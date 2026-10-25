@@ -162,6 +162,15 @@ body.hassel main { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)
 .cq { font-family: var(--font-display); font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; }
 .cnote { font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; flex-basis: 100%; }
 .cact { display: flex; gap: 6px; align-items: center; padding: 6px 0; }
+.qstep { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.qbtn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font-size: 22px; font-weight: 600; line-height: 1; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.qbtn:disabled { opacity: .35; }
+.qstep .cq { min-width: 30px; text-align: center; }
+.crow.shortrow { background: var(--need-bg); }
+.crow.shortrow .cnote { color: var(--need); font-weight: 600; }
+.tag.short { outline: 2px solid currentColor; outline-offset: -2px; }
+.shortflag { display: inline-block; background: var(--need-bg); color: var(--need); font-weight: 700; font-size: 12px; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+.itemlist li.shortli { background: var(--need-bg); }
 .cact .inline { min-height: 40px; padding: 0 12px; margin: 0; }
 .cact .inline.alt { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
 
@@ -324,7 +333,7 @@ var dlm = { save: function (o) { return new Promise(function (res) {
 var tab = role ? (role === 'shop' ? 'board' : 'parts') : 'parts';
 var q = '', secSel = '', stFilter = 'all';
 var boardTab = 'need', boardCrew = 'all', crewSel = 'c1', shipFilter = 'all';
-var sel = {};
+var sel = {}, sendQ = {}, clearArm = 0;
 var sheet = null, phKey = null;
 
 function locName(loc) { return loc === 'shop' ? 'Shop' : (names[loc] || loc); }
@@ -354,6 +363,13 @@ function setShip(data) {
   pending.push({ kind: 'ship', id: data.id, data: data });
   savePending(); render(); flush();
 }
+function receive(loc, key) {
+  var rec = items(loc)[key];
+  if (!rec) return;
+  var want = Number(rec.want) || 0, got = Number(rec.q) || 0;
+  if (want > got) setItem(loc, key, { st: 'need', q: want - got, want: 0, back: { sent: got, of: want, ship: rec.ship || '' }, lastShip: rec.ship || '', ship: '' });
+  else setItem(loc, key, { st: 'have', want: 0, back: null, lastShip: rec.ship || '' });
+}
 function checkShipDone(shipId) {
   var s = getShip(shipId);
   if (!s || s.recvTs) return;
@@ -367,7 +383,7 @@ function markShipReceived(id) {
   var its = items(s.crew);
   s.items.forEach(function (it) {
     var r = its[it.k];
-    if (r && r.st === 'sending' && r.ship === id) setItem(s.crew, it.k, { st: 'have' });
+    if (r && r.st === 'sending' && r.ship === id) receive(s.crew, it.k);
   });
   setShip(Object.assign({}, s, { recvTs: Date.now(), recvBy: role }));
 }
@@ -750,9 +766,16 @@ function renderSelBar() {
 
 /* ---------- views ---------- */
 function tokens() { return q.split(/\s+/).map(norm).filter(Boolean); }
+function isShort(rec) { return !!rec && (rec.st === 'ordered' || rec.st === 'sending') && Number(rec.want) > Number(rec.q); }
+function shortText(rec) {
+  if (isShort(rec)) return '! ' + (rec.st === 'sending' ? 'Sending ' : 'Ordered ') + rec.q + ' of ' + rec.want + ' \u2013 ' + (rec.want - rec.q) + ' still to come';
+  if (rec && rec.st === 'need' && rec.back && rec.back.of) return '! Rest of ' + rec.back.of + ' \u2013 ' + rec.back.sent + ' already sent';
+  return '';
+}
 function tagHTML(rec) {
   if (!rec || !rec.st || rec.st === 'have') return '<span class="chev" aria-hidden="true">+</span>';
-  return '<span class="tag s-' + rec.st + '">' + STATUS[rec.st] + (rec.q ? ' <b>' + rec.q + '</b>' : '') + '</span>';
+  if (isShort(rec)) return '<span class="tag s-' + rec.st + ' short">! ' + STATUS[rec.st] + ' <b>' + rec.q + '</b>&nbsp;of ' + rec.want + '</span>';
+  return '<span class="tag s-' + rec.st + (rec.st === 'need' && rec.back ? ' short' : '') + '">' + (rec.st === 'need' && rec.back ? '! ' : '') + STATUS[rec.st] + (rec.q ? ' <b>' + rec.q + '</b>' : '') + '</span>';
 }
 function thumbHTML(key) {
   if (!hasPhoto(key)) return '';
@@ -815,7 +838,7 @@ function listHTML(loc) {
     h += '<h3 class="sec-h cc" style="--h:210;--cs:0%"><span>' + titles[s] + '</span><span>' + g[s].length + '</span></h3>';
     g[s].forEach(function (x) {
       var act = inlineAction(loc, x.rec);
-      h += '<div class="row cc" style="' + secStyle(x.m.s) + '"><button type="button" class="rowmain" data-act="open" data-loc="' + loc + '" data-key="' + esc(x.key) + '">' + thumbHTML(x.key) + infoHTML(x.m, [x.rec.note, shipNote(x.rec)].filter(Boolean).join(' · ')) + tagHTML(x.rec) + '</button>' +
+      h += '<div class="row cc" style="' + secStyle(x.m.s) + '"><button type="button" class="rowmain" data-act="open" data-loc="' + loc + '" data-key="' + esc(x.key) + '">' + thumbHTML(x.key) + infoHTML(x.m, [shortText(x.rec), x.rec.note, shipNote(x.rec)].filter(Boolean).join(' · ')) + tagHTML(x.rec) + '</button>' +
         (act ? '<button type="button" class="inline" data-act="adv" data-loc="' + loc + '" data-key="' + esc(x.key) + '" data-to="' + act.to + '">' + act.label + '</button>' : '') + '</div>';
     });
   });
@@ -860,7 +883,7 @@ function boardHTML() {
   if (!order.length) h += '<div class="empty"><p>' + (boardTab === 'need' ? 'No open requests.' : boardTab === 'ordered' ? 'Nothing on order.' : 'Nothing being sent.') + '</p></div>';
   order.forEach(function (key) {
     var es = byKey[key], m = metaOf(key, es[0].rec), total = 0;
-    es.forEach(function (e) { total += e.rec.q || 0; });
+    es.forEach(function (e) { total += (boardTab === 'need' || boardTab === 'ordered') ? sqFor(e.crew, key, e.rec) : (e.rec.q || 0); });
     var th = hasPhoto(key) ? (photoSrc(key) ? '<button type="button" class="thumb" data-act="photoview" data-key="' + esc(key) + '" aria-label="Show photo"><img class="thumb" alt="" src="' + photoSrc(key) + '" style="border:0"></button>' : '<span class="thumb ph0">' + CAM + '</span>') : '';
     h += '<section class="bgroup cc" style="' + secStyle(m.s) + '"><div class="bhead"><div class="bl">' + th + '<div>' + (m.pn ? '<span class="pn">' + esc(m.pn) + '</span>' : '') + '<h3>' + esc(m.desc) + '</h3><span class="meta">' + esc(m.s) + (m.u ? ' · ' + esc(m.u) : '') + '</span></div></div><div class="btot">' + total + '</div></div>' +
       '';
@@ -869,9 +892,14 @@ function boardHTML() {
       if (boardTab === 'need') btns = '<button type="button" class="inline alt" data-act="adv" data-loc="' + e.crew + '" data-key="' + esc(key) + '" data-to="ordered">Order</button>';
       else if (boardTab === 'sending') btns = '<button type="button" class="inline" data-act="adv" data-loc="' + e.crew + '" data-key="' + esc(key) + '" data-to="have">Delivered</button>';
       var sn = boardTab === 'sending' ? shipNote(e.rec) : '';
-      h += '<div class="crow">' + (selectable ? '<button type="button" class="chk' + (sel[id] ? ' on' : '') + '" data-act="selrow" data-crew="' + e.crew + '" data-key="' + esc(key) + '" aria-pressed="' + (sel[id] ? 'true' : 'false') + '" aria-label="Select"><span>✓</span></button>' : '') +
-        '<button type="button" class="cinfo' + (selectable ? '' : ' nochk') + '" data-act="open" data-loc="' + e.crew + '" data-key="' + esc(key) + '"><span class="cchip">' + esc(names[e.crew]) + '</span><span class="cq">× ' + (e.rec.q || 0) + '</span>' +
-        ((e.rec.note || sn) ? '<span class="cnote">' + esc([e.rec.note, sn].filter(Boolean).join(' · ')) + '</span>' : '') + '</button><span class="cact">' + btns + '</span></div>';
+      var asked = Number(e.rec.q) || 0, sq = sqFor(e.crew, key, e.rec), cut = selectable && sq < asked;
+      var qtyHTML = selectable
+        ? '<span class="qstep" role="group" aria-label="Quantity to send"><button type="button" class="qbtn" data-act="sq" data-crew="' + e.crew + '" data-key="' + esc(key) + '" data-d="-1" aria-label="Less"' + (sq <= 1 ? ' disabled' : '') + '>\u2212</button><b class="cq">' + sq + '</b><button type="button" class="qbtn" data-act="sq" data-crew="' + e.crew + '" data-key="' + esc(key) + '" data-d="1" aria-label="More"' + (sq >= asked ? ' disabled' : '') + '>+</button></span>'
+        : '<span class="cq">\u00d7 ' + asked + '</span>';
+      var notes = [cut ? '! Asked for ' + asked + ', sending ' + sq : shortText(e.rec), e.rec.note, sn].filter(Boolean);
+      h += '<div class="crow' + (cut || isShort(e.rec) || (e.rec.st === 'need' && e.rec.back) ? ' shortrow' : '') + '">' + (selectable ? '<button type="button" class="chk' + (sel[id] ? ' on' : '') + '" data-act="selrow" data-crew="' + e.crew + '" data-key="' + esc(key) + '" aria-pressed="' + (sel[id] ? 'true' : 'false') + '" aria-label="Select"><span>\u2713</span></button>' : '') +
+        '<button type="button" class="cinfo' + (selectable ? '' : ' nochk') + '" data-act="open" data-loc="' + e.crew + '" data-key="' + esc(key) + '"><span class="cchip">' + esc(names[e.crew]) + '</span>' + (selectable ? '' : qtyHTML) +
+        (notes.length ? '<span class="cnote">' + esc(notes.join(' \u00b7 ')) + '</span>' : '') + '</button>' + (selectable ? qtyHTML : '') + '<span class="cact">' + btns + '</span></div>';
     });
     h += '</section>';
   });
@@ -954,6 +982,7 @@ function itemSheetHTML() {
   if (role !== 'shop' && (rec.st === 'ordered' || rec.st === 'sending')) {
     var sp = rec.st === 'sending' ? getShip(rec.ship) : null;
     h += '<div class="banner-st s-' + rec.st + '">' + (rec.st === 'ordered' ? 'The shop has this on order.' : 'The shop sent this' + (sp ? ' on ' + esc(fmtDT(sp.ts)) : '') + '.') + '</div>';
+    if (isShort(rec)) h += '<div class="banner-st s-need">! The shop ' + (rec.st === 'sending' ? 'sent' : 'ordered') + ' ' + rec.q + ' of the ' + rec.want + ' you asked for. The other ' + (rec.want - rec.q) + ' goes back on your list when you tap Received.</div>';
     if (rec.st === 'sending') h += '<button type="button" class="btn primary big" data-act="adv" data-loc="' + esc(loc) + '" data-key="' + esc(key) + '" data-to="have">Received</button>';
   }
   h += '<div class="seg" role="group" aria-label="Status">' + opts.map(function (s) {
@@ -963,6 +992,7 @@ function itemSheetHTML() {
     '<div class="stepval">' + (has ? rec.q : '–') + '<small>' + esc(m.u || 'qty') + '</small></div>' +
     '<button type="button" class="stepbtn" data-act="qty" data-d="1" aria-label="More"' + (has ? '' : ' disabled') + '>+</button></div>';
   h += '<div><label class="lbl" for="sh-note">Note</label><input id="sh-note" class="field" type="text" maxlength="200" placeholder="' + (has ? 'Size, who asked, anything the shop should know' : 'Pick a status first') + '" value="' + esc(rec.note || '') + '"' + (has ? '' : ' disabled') + '></div>';
+  if (rec.st === 'need' && rec.back && rec.back.of) h += '<div class="banner-st s-need">! ' + rec.back.sent + ' of ' + rec.back.of + ' already came. This is the rest.</div>';
   if (rec.ts) h += '<p class="hint">Last change: ' + esc(who(rec.by)) + ' · ' + ago(rec.ts) + '</p>';
   h += '<div class="foot">' + (has ? '<button type="button" class="btn danger ghost" data-act="clear">Clear</button>' : '') + '<button type="button" class="btn primary" data-act="close">Done</button></div></div>';
   return h;
@@ -982,6 +1012,7 @@ function pickerHTML() {
     '<div><label class="lbl">Crew names</label><div class="names">' + CREWS.map(function (c) {
       return '<input id="nm-' + c + '" class="field" type="text" maxlength="30" value="' + esc(names[c]) + '" aria-label="Name for ' + c + '">';
     }).join('') + '</div><p class="hint" style="margin-top:6px">Names are shared with everyone using this page.</p></div>';
+  if (role === 'shop') h += '<div><label class="lbl">Start over</label><button type="button" class="btn danger" style="width:100%' + (clearArm ? ';background:var(--danger);color:var(--surface);border-color:var(--danger)' : '') + '" data-act="cleararm">' + (clearArm ? 'Tap again to clear everything' : 'Clear all requests and shipments') + '</button><p class="hint" style="margin-top:6px">Removes every crew request and the whole shipment history for all phones. Crew names and part photos stay.</p></div>';
   h += '<div class="foot"><button type="button" class="btn" data-act="savenames">Save names</button>' + (sheet && sheet.forced ? '' : '<button type="button" class="btn primary" data-act="close">Done</button>') + '</div>' +
     '<button type="button" class="btn ghost" data-act="leaveteam" style="align-self:center">Use a different team code</button></div>';
   return h;
@@ -1019,8 +1050,8 @@ function shipReviewHTML() {
   var h = '<div class="grab"></div><div class="stack"><div><h2>Record shipment</h2><p class="meta" style="margin:0">Sent ' + esc(fmtDT(Date.now())) + (order.length > 1 ? ' · one record per crew' : '') + '</p></div>';
   order.forEach(function (c) {
     h += '<div><label class="lbl">To ' + esc(names[c]) + '</label><ul class="itemlist">' + groups[c].sort(function (a, b) { return metaOf(a.key, a.rec).idx - metaOf(b.key, b.rec).idx; }).map(function (e) {
-      var m = metaOf(e.key, e.rec);
-      return '<li><span class="q">' + (e.rec.q || 0) + '</span><span class="t">' + esc(m.desc) + '<small>' + esc([m.pn, m.u, e.rec.note].filter(Boolean).join(' · ')) + '</small></span></li>';
+      var m = metaOf(e.key, e.rec), sq = sqFor(e.crew, e.key, e.rec), of = Number(e.rec.want) || Number(e.rec.q) || 0;
+      return '<li' + (sq < of ? ' class="shortli"' : '') + '><span class="q">' + sq + '</span><span class="t">' + esc(m.desc) + (sq < of ? ' <span class="shortflag">! ' + sq + ' of ' + of + '</span>' : '') + '<small>' + esc([m.pn, m.u, e.rec.note].filter(Boolean).join(' · ')) + '</small></span></li>';
     }).join('') + '</ul></div>';
   });
   h += '<div><label class="lbl" for="ship-note">Carrier, truck or tracking (optional)</label><input id="ship-note" class="field" type="text" maxlength="120"></div>' +
@@ -1036,8 +1067,8 @@ function shipSheetHTML() {
     (s.recvTs ? '<div class="banner-st s-have">Received ' + esc(fmtDT(s.recvTs)) + (s.recvBy ? ' by ' + esc(who(s.recvBy)) : '') + '</div>' : '<div class="banner-st s-sending">In transit</div>') +
     (s.note ? '<p class="hint">' + esc(s.note) + '</p>' : '') +
     '<p class="hint">' + s.items.length + ' items · ' + qty + ' pcs</p><ul class="itemlist">' + s.items.map(function (it) {
-      var r = its[it.k], got = s.recvTs || (r && r.st === 'have' && r.ship === s.id);
-      return '<li><span class="q">' + (it.q || 0) + '</span><span class="t">' + esc(it.desc || it.n) + '<small>' + esc([it.pn, it.u, it.note].filter(Boolean).join(' · ')) + '</small></span>' + (got ? '<span class="ok">✓</span>' : '') + '</li>';
+      var r = its[it.k], got = s.recvTs || (r && r.lastShip === s.id), cut = Number(it.asked) > Number(it.q);
+      return '<li' + (cut ? ' class="shortli"' : '') + '><span class="q">' + (it.q || 0) + '</span><span class="t">' + esc(it.desc || it.n) + (cut ? ' <span class="shortflag">! ' + it.q + ' of ' + it.asked + '</span>' : '') + '<small>' + esc([it.pn, it.u, it.note].filter(Boolean).join(' · ')) + '</small></span>' + (got ? '<span class="ok">✓</span>' : '') + '</li>';
     }).join('') + '</ul><div class="foot"><button type="button" class="btn" data-act="copyship" data-id="' + esc(s.id) + '">Copy list</button>' +
     (s.recvTs ? '' : '<button type="button" class="btn primary" data-act="shiprecv" data-id="' + esc(s.id) + '">Mark all received</button>') +
     '<button type="button" class="btn ghost" data-act="close">Close</button></div></div>';
@@ -1060,35 +1091,56 @@ function toast(msg) {
   var t = $('toast'); t.textContent = msg; t.hidden = false;
   clearTimeout(toast.t); toast.t = setTimeout(function () { t.hidden = true; }, 1800);
 }
-function advance(loc, key, to, shipId) {
+function sqFor(crew, key, rec) {
+  var max = Number(rec && rec.q) || 0, v = sendQ[crew + '|' + key];
+  if (v == null) return max;
+  return Math.max(1, Math.min(max, v));
+}
+function advance(loc, key, to, shipId, qty) {
   var rec = items(loc)[key];
   if (!rec) return;
+  if (to === 'have') { var was = rec.ship, wasSending = rec.st === 'sending'; receive(loc, key); if (wasSending && was) checkShipDone(was); return; }
   if (to === 'sending' && rec.st === 'need' && CATMAP[key] && role === 'shop') {
     var sh = items('shop')[key];
     if (sh && sh.st === 'have' && sh.q > 0) setItem('shop', key, { q: Math.max(0, sh.q - (rec.q || 0)) });
   }
   var patch = { st: to };
   if (shipId) patch.ship = shipId;
+  if ((to === 'ordered' || to === 'sending') && rec.st === 'need') patch.back = null;
+  if ((to === 'ordered' || to === 'sending') && qty && qty < (Number(rec.q) || 0)) { patch.want = Number(rec.want) || Number(rec.q); patch.q = qty; }
   setItem(loc, key, patch);
-  if (to === 'have' && rec.st === 'sending' && rec.ship) checkShipDone(rec.ship);
 }
 function confirmShip() {
   var es = selEntries(), groups = {}, note = ($('ship-note').value || '').trim(), ts = Date.now();
   es.forEach(function (e) { (groups[e.crew] = groups[e.crew] || []).push(e); });
   Object.keys(groups).forEach(function (crew) {
     var id = 's' + ts.toString(36) + Math.random().toString(36).slice(2, 5) + crew;
-    var arr = groups[crew].sort(function (a, b) { return metaOf(a.key, a.rec).idx - metaOf(b.key, b.rec).idx; }).map(function (e) {
-      var m = metaOf(e.key, e.rec);
-      return { k: e.key, n: m.n, pn: m.pn, desc: m.desc, u: m.u, q: e.rec.q || 0, note: e.rec.note || '' };
+    var list = groups[crew].sort(function (a, b) { return metaOf(a.key, a.rec).idx - metaOf(b.key, b.rec).idx; });
+    var arr = list.map(function (e) {
+      var m = metaOf(e.key, e.rec), sq = sqFor(e.crew, e.key, e.rec);
+      return { k: e.key, n: m.n, pn: m.pn, desc: m.desc, u: m.u, q: sq, asked: Number(e.rec.want) || Number(e.rec.q) || 0, note: e.rec.note || '' };
     });
     setShip({ id: id, crew: crew, ts: ts, by: role, note: note, items: arr, recvTs: 0, recvBy: '' });
-    groups[crew].forEach(function (e) { advance(crew, e.key, 'sending', id); });
+    list.forEach(function (e) { advance(crew, e.key, 'sending', id, sqFor(e.crew, e.key, e.rec)); delete sendQ[e.crew + '|' + e.key]; });
   });
   sel = {};
   sheet = null; $('sheet').hidden = true; $('scrim').hidden = true;
   boardTab = 'sending';
   render();
   toast('Shipment recorded');
+}
+function clearAll() {
+  if (!db) { toast('Needs signal to clear'); return; }
+  var shipIds = Object.keys(SH.cache);
+  pending = pending.filter(function (p) { return p.kind !== 'item' && p.kind !== 'ship'; });
+  savePending();
+  ROLES.forEach(function (l) { db.doc('loc/' + l).delete(); });
+  shipIds.forEach(function (id) { db.doc('ship/' + id).delete(); });
+  cache = {}; SH.cache = {}; sel = {}; sendQ = {};
+  persistCacheSoon();
+  sheet = null; $('sheet').hidden = true; $('scrim').hidden = true;
+  render();
+  toast('Cleared ' + shipIds.length + ' shipment' + (shipIds.length === 1 ? '' : 's') + ' and all requests');
 }
 function setRole(r) {
   role = r; LS.set('wl_role', r);
@@ -1137,7 +1189,7 @@ function shipText(s) {
   var t = ['SHIPMENT TO ' + locName(s.crew).toUpperCase(), 'Sent ' + fmtDT(s.ts) + ' by ' + who(s.by)];
   if (s.note) t.push(s.note);
   t.push(s.recvTs ? 'Received ' + fmtDT(s.recvTs) : 'In transit', '');
-  s.items.forEach(function (it) { t.push('- ' + (it.q || 0) + ' x ' + (it.n) + (it.u ? ' [' + it.u + ']' : '') + (it.note ? ' – ' + it.note : '')); });
+  s.items.forEach(function (it) { t.push('- ' + (it.q || 0) + ' x ' + (it.n) + (Number(it.asked) > Number(it.q) ? ' (! ' + it.q + ' of ' + it.asked + ')' : '') + (it.u ? ' [' + it.u + ']' : '') + (it.note ? ' – ' + it.note : '')); });
   return t.join('\n');
 }
 function copyText(text) {
@@ -1201,7 +1253,9 @@ document.addEventListener('click', function (ev) {
   else if (a === 'cats') { sheet = { type: 'cats' }; showSheet(); }
   else if (a === 'catpick') { secSel = d.sec === '' ? '' : SECTIONS[Number(d.i)]; sheet = null; $('sheet').hidden = true; $('scrim').hidden = true; renderTools(); renderMain(); window.scrollTo(0, 0); }
   else if (a === 'open') { sheet = { type: 'item', loc: d.loc, key: d.key }; showSheet(); }
-  else if (a === 'adv') { advance(d.loc, d.key, d.to); }
+  else if (a === 'adv') { if (d.to === 'ordered') { var ar = items(d.loc)[d.key]; advance(d.loc, d.key, 'ordered', null, ar ? sqFor(d.loc, d.key, ar) : 0); delete sendQ[d.loc + '|' + d.key]; } else advance(d.loc, d.key, d.to); }
+  else if (a === 'sq') { var sr = items(d.crew)[d.key]; if (sr) { var sid = d.crew + '|' + d.key; sendQ[sid] = Math.max(1, Math.min(Number(sr.q) || 1, sqFor(d.crew, d.key, sr) + Number(d.d))); if (sendQ[sid] === Number(sr.q)) delete sendQ[sid]; renderMain(); } }
+  else if (a === 'cleararm') { if (Date.now() - clearArm < 6000) { clearArm = 0; clearAll(); } else { clearArm = Date.now(); renderSheet(); setTimeout(function () { if (clearArm && Date.now() - clearArm >= 6000) { clearArm = 0; if (sheet && sheet.type === 'picker') renderSheet(); } }, 6100); } }
   else if (a === 'selrow') { var id = d.crew + '|' + d.key; if (sel[id]) delete sel[id]; else sel[id] = 1; renderMain(); }
   else if (a === 'selall') { boardEntries().filter(function (e) { return (e.rec.st === boardTab) && (boardCrew === 'all' || e.crew === boardCrew); }).forEach(function (e) { sel[e.crew + '|' + e.key] = 1; }); renderMain(); }
   else if (a === 'selclear') { sel = {}; renderMain(); }
@@ -1212,7 +1266,7 @@ document.addEventListener('click', function (ev) {
   else if (a === 'copyship') { var sp = getShip(d.id); if (sp) copyText(shipText(sp)); }
   else if (a === 'status' && sheet && sheet.type === 'item') {
     var rec = items(sheet.loc)[sheet.key] || {};
-    setItem(sheet.loc, sheet.key, { st: d.st, q: (rec.st && rec.st !== 'have' && rec.q > 0) ? rec.q : 1, note: (rec.st === 'have' ? '' : rec.note || '') });
+    setItem(sheet.loc, sheet.key, { st: d.st, q: (rec.st && rec.st !== 'have' && rec.q > 0) ? rec.q : 1, note: (rec.st === 'have' ? '' : rec.note || ''), want: (d.st === 'need' ? 0 : (rec.want || 0)), back: (rec.st === 'have' ? null : (rec.back || null)) });
     if (d.st === 'have' && rec.st === 'sending' && rec.ship) checkShipDone(rec.ship);
   }
   else if (a === 'qty' && sheet && sheet.type === 'item') {
@@ -1220,7 +1274,7 @@ document.addEventListener('click', function (ev) {
     if (!r2.st) return;
     setItem(sheet.loc, sheet.key, { q: Math.max(0, (r2.q || 0) + Number(d.d)) });
   }
-  else if (a === 'clear' && sheet && sheet.type === 'item') { setItem(sheet.loc, sheet.key, { st: '', q: 0, note: '' }); closeSheet(); }
+  else if (a === 'clear' && sheet && sheet.type === 'item') { setItem(sheet.loc, sheet.key, { st: '', q: 0, note: '', want: 0, back: null }); closeSheet(); }
   else if (a === 'phpick') { phKey = d.key; $('ph-file').click(); }
   else if (a === 'phdel') { delPhoto(d.key); }
   else if (a === 'photoview') { sheet = { type: 'photo', key: d.key, loc: sheet && sheet.loc, prev: sheet }; if (!photoSrc(d.key)) loadPhoto(d.key); showSheet(); }
