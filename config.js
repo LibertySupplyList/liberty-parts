@@ -1,2 +1,2 @@
-/* Liberty Parts - Firebase project liberty-parts-9a3a3 */
-window.WL_CONFIG = {"firebase": {"apiKey": "AIzaSyBOrfg6HJG7C4q-sOnkkQmSQXKhvVLcyQA", "authDomain": "liberty-parts-9a3a3.firebaseapp.com", "projectId": "liberty-parts-9a3a3", "storageBucket": "liberty-parts-9a3a3.firebasestorage.app", "messagingSenderId": "202657929041", "appId": "1:202657929041:web:11bbcb0d23ca8f04032570"}};
+/* Liberty Parts - Firebase project liberty-parts */
+window.WL_CONFIG = {"firebase": {"apiKey": "AIzaSyCgfaU91tieAfjE2oKJz6J27W6zjKocKZA", "authDomain": "liberty-parts.firebaseapp.com", "projectId": "liberty-parts", "storageBucket": "liberty-parts.firebasestorage.app", "messagingSenderId": "491050618125", "appId": "1:491050618125:web:ca20a0830c0a38eecf7444"}};
