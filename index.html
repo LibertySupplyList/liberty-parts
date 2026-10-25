@@ -727,7 +727,7 @@ function renderTools() {
   var cnt = secSel ? CAT.filter(function (c) { return c.s === secSel; }).length : CAT.length;
   b.setAttribute('style', secSel ? secStyle(secSel) : '--h:210;--cs:0%');
   b.innerHTML = '<span class="lbl2">' + esc(secSel || 'All categories') + '</span><span class="cnt">' + cnt + ' items</span><span class="car" aria-hidden="true">&#9662;</span>';
-  $('stchips').innerHTML = [['all', 'All'], ['need', 'Need'], ['ordered', 'Ordered'], ['sending', 'Sending'], ['have', 'On hand']].map(function (c) {
+  $('stchips').innerHTML = [['all', 'All'], ['need', 'Need'], ['ordered', 'Ordered'], ['sending', 'Sending']].map(function (c) {
     return '<button type="button" class="chip' + (stFilter === c[0] ? ' on' : '') + '" data-act="stf" data-st="' + c[0] + '">' + c[1] + '</button>';
   }).join('');
   syncTopH();
@@ -751,7 +751,7 @@ function renderSelBar() {
 /* ---------- views ---------- */
 function tokens() { return q.split(/\s+/).map(norm).filter(Boolean); }
 function tagHTML(rec) {
-  if (!rec || !rec.st) return '<span class="chev" aria-hidden="true">+</span>';
+  if (!rec || !rec.st || rec.st === 'have') return '<span class="chev" aria-hidden="true">+</span>';
   return '<span class="tag s-' + rec.st + '">' + STATUS[rec.st] + (rec.q ? ' <b>' + rec.q + '</b>' : '') + '</span>';
 }
 function thumbHTML(key) {
@@ -805,11 +805,11 @@ function shipNote(rec) { var s = rec.st === 'sending' ? getShip(rec.ship) : null
 function listHTML(loc) {
   var g = groupsFor(loc), open = g.sending.length + g.ordered.length + g.need.length;
   var h = '<div class="wrap"><div class="listhead"><div><h2>' + esc(locName(loc)) + (loc === 'shop' ? ' stock' : ' list') + '</h2><p>' +
-    open + ' open · ' + g.have.length + ' on hand</p></div><div class="actions"><button type="button" class="btn" data-act="copylist" data-loc="' + loc + '">Copy</button>' +
+    open + ' open</p></div><div class="actions"><button type="button" class="btn" data-act="copylist" data-loc="' + loc + '">Copy</button>' +
     (dlm ? '<button type="button" class="btn" data-act="csv" data-loc="' + loc + '">CSV</button>' : '') + '</div></div>';
   var titles = { sending: 'Sending', ordered: 'On order', need: 'Need', have: 'On hand' };
   var any = false;
-  ['sending', 'ordered', 'need', 'have'].forEach(function (s) {
+  ['sending', 'ordered', 'need'].forEach(function (s) {
     if (!g[s].length) return;
     any = true;
     h += '<h3 class="sec-h cc" style="--h:210;--cs:0%"><span>' + titles[s] + '</span><span>' + g[s].length + '</span></h3>';
@@ -929,9 +929,8 @@ function render() {
 
 /* ---------- sheet ---------- */
 function statusOptions(loc) {
-  if (role !== 'shop') return ['need', 'have'];
-  if (loc === 'shop') return ['have', 'ordered'];
-  return ['need', 'ordered', 'sending', 'have'];
+  if (role !== 'shop') return ['need'];
+  return ['need', 'ordered', 'sending'];
 }
 function ago(ts) {
   var s = Math.max(0, (Date.now() - ts) / 1000);
@@ -942,7 +941,7 @@ function ago(ts) {
 }
 function itemSheetHTML() {
   var loc = sheet.loc, key = sheet.key, rec = items(loc)[key] || {}, m = metaOf(key, rec), opts = statusOptions(loc);
-  var has = !!rec.st, src = photoSrc(key), hp = hasPhoto(key);
+  var has = !!rec.st && rec.st !== 'have', src = photoSrc(key), hp = hasPhoto(key);
   if (hp && !src) loadPhoto(key);
   var h = '<div class="grab"></div><div class="stack"><div>' + (m.pn ? '<span class="pn">' + esc(m.pn) + '</span>' : '') + '<h2>' + esc(m.desc) + '</h2>' +
     '<p class="meta" style="margin:0">' + esc(m.s) + (m.u ? ' · ' + esc(m.u) : '') + ' · ' + esc(loc === 'shop' ? 'Shop stock' : locName(loc) + ' list') + '</p></div>';
@@ -1115,7 +1114,7 @@ function lineFor(qv, m, note) { return '- ' + (qv || 0) + ' x ' + m.n + (m.u ? '
 function textFor(loc) {
   var g = groupsFor(loc), t = [locName(loc).toUpperCase() + (loc === 'shop' ? ' STOCK' : ' LIST') + ' – ' + new Date().toLocaleDateString()];
   var titles = { sending: 'SENDING', ordered: 'ON ORDER', need: 'NEED', have: 'ON HAND' };
-  ['sending', 'ordered', 'need', 'have'].forEach(function (s) {
+  ['sending', 'ordered', 'need'].forEach(function (s) {
     if (!g[s].length) return;
     t.push('', titles[s]);
     g[s].forEach(function (x) { t.push(lineFor(x.rec.q, x.m, x.rec.note)); });
@@ -1163,8 +1162,7 @@ async function exportCsv(loc) {
       var its = items(l);
       Object.keys(its).forEach(function (k) {
         var r = its[k];
-        if (!r || !r.st || !known(k, r)) return;
-        if (loc === 'all' && r.st === 'have') return;
+        if (!r || !r.st || r.st === 'have' || !known(k, r)) return;
         var m = metaOf(k, r);
         rows.push([locName(l), STATUS[r.st], m.s, m.pn, m.desc, m.u, r.q || 0, r.note || '', r.ts ? new Date(r.ts).toISOString().slice(0, 16).replace('T', ' ') : '']);
       });
@@ -1214,7 +1212,7 @@ document.addEventListener('click', function (ev) {
   else if (a === 'copyship') { var sp = getShip(d.id); if (sp) copyText(shipText(sp)); }
   else if (a === 'status' && sheet && sheet.type === 'item') {
     var rec = items(sheet.loc)[sheet.key] || {};
-    setItem(sheet.loc, sheet.key, { st: d.st, q: rec.q > 0 ? rec.q : 1 });
+    setItem(sheet.loc, sheet.key, { st: d.st, q: (rec.st && rec.st !== 'have' && rec.q > 0) ? rec.q : 1, note: (rec.st === 'have' ? '' : rec.note || '') });
     if (d.st === 'have' && rec.st === 'sending' && rec.ship) checkShipDone(rec.ship);
   }
   else if (a === 'qty' && sheet && sheet.type === 'item') {
