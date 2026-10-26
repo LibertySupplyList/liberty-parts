@@ -297,6 +297,7 @@ textarea.field { padding: 10px 12px; min-height: 140px; font-family: var(--font-
 .pdoc .psign { display: grid; grid-template-columns: 2fr 1fr 2fr 1fr; gap: 14px; margin-top: 22px; font-size: 10px; color: #333; }
 .pdoc .psign span { display: block; border-bottom: 1px solid #111; height: 18px; }
 .pdoc tr { break-inside: avoid; }
+.pbreak { height: 0; margin: 22px -30px; border-top: 10px solid #8a939a; }
 .pdoc thead { display: table-header-group; }
 @media print {
   @page { size: letter; margin: 0.4in; }
@@ -305,6 +306,7 @@ textarea.field { padding: 10px 12px; min-height: 140px; font-family: var(--font-
   body.printing > *:not(#printroot) { display: none !important; }
   body.printing::before { display: none !important; }
   body.printing #printroot { display: block !important; }
+  .pbreak { break-after: page; page-break-after: always; border: 0; margin: 0; }
   .pdoc, .pdoc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 @media (prefers-reduced-motion: no-preference) { #sheet { animation: up .18s ease-out; } @keyframes up { from { transform: translateY(24px); opacity: .6; } } }
@@ -983,7 +985,7 @@ function boardHTML() {
   var all = boardEntries().filter(function (e) { return boardCrew === 'all' || e.crew === boardCrew; });
   var counts = { need: 0, ordered: 0, sending: 0 };
   all.forEach(function (e) { counts[e.rec.st]++; });
-  var h = '<div class="wrap"><div class="listhead"><div><h2>Board</h2><p>Requests from all crews</p></div><div class="actions"><button type="button" class="btn" data-act="copyboard">Copy</button>' +
+  var h = '<div class="wrap"><div class="listhead"><div><h2>Board</h2><p>' + (boardCrew === 'all' ? 'Requests from all crews' : esc(names[boardCrew]) + ' requests') + '</p></div><div class="actions">' + (printLocs(boardCrew).length ? '<button type="button" class="btn printbtn" data-act="printlist" data-loc="' + boardCrew + '">Print</button>' : '') + '<button type="button" class="btn" data-act="copyboard">Copy</button>' +
     (dlm ? '<button type="button" class="btn" data-act="csv" data-loc="all">CSV</button>' : '') + '</div></div>';
   h += boardCrew === 'all' ? '<div class="padlist">' + CREWS.map(function (c) { return padBarHTML(c, true); }).join('') + '</div>' : padBarHTML(boardCrew);
   h += '<div class="chips"><button type="button" class="chip' + (boardCrew === 'all' ? ' on' : '') + '" data-act="bcrew" data-crew="all">All crews</button>' +
@@ -1235,9 +1237,15 @@ function printDoc(loc) {
   h += '<div class="psign"><div>Pulled by <span></span></div><div>Date <span></span></div><div>Received by <span></span></div><div>Date <span></span></div></div>';
   return h + '</div>';
 }
+function printLocs(loc) {
+  var ls = loc === 'all' ? CREWS : [loc];
+  return ls.filter(function (c) { var g = groupsFor(c); return g.need.length + g.ordered.length + g.sending.length > 0; });
+}
+function printDocs(loc) { return printLocs(loc).map(printDoc).join('<div class="pbreak"></div>'); }
 function printSheetHTML() {
-  return '<div class="grab"></div><div class="stack"><div><h2>Print ' + esc(locName(sheet.loc)) + ' list</h2><p class="meta" style="margin:0">This is how the page will print. On iPhone, tap Print, then pick your printer or Save to Files as a PDF.</p></div>' +
-    '<div class="paperwrap"><div class="paper">' + printDoc(sheet.loc) + '</div></div>' +
+  var nl = printLocs(sheet.loc).length;
+  return '<div class="grab"></div><div class="stack"><div><h2>Print ' + (sheet.loc === 'all' ? 'all crews' + (nl > 1 ? ' (' + nl + ' pages)' : '') : esc(locName(sheet.loc)) + ' list') + '</h2><p class="meta" style="margin:0">This is how the page will print. On iPhone, tap Print, then pick your printer or Save to Files as a PDF.</p></div>' +
+    '<div class="paperwrap"><div class="paper">' + printDocs(sheet.loc) + '</div></div>' +
     '<div class="foot"><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" data-act="printnow">Print</button></div></div>';
 }
 function fitPaper() {
@@ -1250,7 +1258,7 @@ function fitPaper() {
 window.addEventListener('resize', function () { if (sheet && sheet.type === 'print') fitPaper(); });
 function doPrint() {
   var root = $('printroot');
-  root.innerHTML = printDoc(sheet.loc);
+  root.innerHTML = printDocs(sheet.loc);
   document.body.classList.add('printing');
   var done = function () { document.body.classList.remove('printing'); root.innerHTML = ''; window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done);
