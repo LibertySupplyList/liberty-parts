@@ -379,7 +379,7 @@ var dlm = { save: function (o) { return new Promise(function (res) {
 var tab = role ? (role === 'shop' ? 'board' : 'parts') : 'parts';
 var q = '', secSel = '', stFilter = 'all';
 var boardTab = 'need', boardCrew = 'all', crewSel = 'c1', shipFilter = 'all';
-var sel = {}, sendQ = {}, clearArm = 0;
+var sel = {}, sendQ = {}, clearArm = 0, clearCrew = '', shipPad = 'all';
 var sheet = null, phKey = null;
 
 function locName(loc) { return loc === 'shop' ? 'Shop' : (names[loc] || loc); }
@@ -982,11 +982,14 @@ function crewsHTML() {
   }).join('') + '</div></div>' + listHTML(crewSel);
 }
 function shipsHTML() {
-  var all = shipsAll().filter(function (s) { return role !== 'shop' || shipFilter === 'all' || s.crew === shipFilter; });
+  var all = shipsFiltered(), pads = shipPadsFor();
   var h = '<div class="wrap"><div class="listhead"><div><h2>' + (role === 'shop' ? 'Shipped' : 'Shipments') + '</h2><p>' + (role === 'shop' ? 'Every shipment sent, newest first' : 'What the shop has sent to ' + esc(locName(role))) + '</p></div>' +
     '<div class="actions">' + (dlm ? '<button type="button" class="btn" data-act="csv" data-loc="ships">CSV</button>' : '') + '</div></div>';
   if (role === 'shop') h += '<div class="chips"><button type="button" class="chip' + (shipFilter === 'all' ? ' on' : '') + '" data-act="sfilter" data-crew="all">All crews</button>' +
     CREWS.map(function (c) { return '<button type="button" class="chip' + (shipFilter === c ? ' on' : '') + '" data-act="sfilter" data-crew="' + c + '">' + esc(names[c]) + '</button>'; }).join('') + '</div>';
+  if (pads.length > 1 || (pads.length === 1 && pads[0] !== '')) h += '<div class="chips padchips"><button type="button" class="chip' + (shipPad === 'all' ? ' on' : '') + '" data-act="spad" data-pad="all">All pads</button>' +
+    pads.map(function (pn) { return '<button type="button" class="chip' + (shipPad === pn ? ' on' : '') + '" data-act="spad" data-pad="' + esc(pn) + '">' + (pn ? esc(pn) : 'No pad') + '</button>'; }).join('') + '</div>';
+  if (shipPad !== 'all') { var pq = 0; all.forEach(function (s) { s.items.forEach(function (it) { pq += it.q || 0; }); }); h += '<p class="hint padsum">' + (shipPad ? esc(shipPad) : 'No pad') + ' \u00b7 ' + all.length + ' shipment' + (all.length === 1 ? '' : 's') + ' \u00b7 ' + pq + ' pcs</p>'; }
   if (!all.length) h += '<div class="empty"><p>No shipments recorded yet.' + (role === 'shop' ? ' Select items on the Board and tap Send.' : '') + '</p></div>';
   var day = '';
   all.forEach(function (s) {
@@ -1083,7 +1086,14 @@ function pickerHTML() {
     '<div><label class="lbl">Crew names</label><div class="names">' + CREWS.map(function (c) {
       return '<input id="nm-' + c + '" class="field" type="text" maxlength="30" value="' + esc(names[c]) + '" aria-label="Name for ' + c + '">';
     }).join('') + '</div><p class="hint" style="margin-top:6px">Names are shared with everyone using this page.</p></div>';
-  if (role === 'shop') h += '<div><label class="lbl">Start over</label><button type="button" class="btn danger" style="width:100%' + (clearArm ? ';background:var(--danger);color:var(--surface);border-color:var(--danger)' : '') + '" data-act="cleararm">' + (clearArm ? 'Tap again to clear everything' : 'Clear all requests and shipments') + '</button><p class="hint" style="margin-top:6px">Removes every crew request and the whole shipment history for all phones. Crew names and part photos stay.</p></div>';
+  if (role === 'shop') {
+    var cc = clearCrew, cpd = cc ? padOf(cc) : null, cpn = cpd ? cpd.name : '';
+    var nShip = cc ? shipsForClear(cc).length : 0, nReq = cc ? Object.keys(items(cc)).filter(function (k) { var r = items(cc)[k]; return r && r.st && r.st !== 'have'; }).length : 0;
+    h += '<div><label class="lbl">Start over for one crew</label><div class="chips" style="padding-top:0">' + CREWS.map(function (c) { return '<button type="button" class="chip' + (cc === c ? ' on' : '') + '" data-act="clearcrew" data-crew="' + c + '">' + esc(names[c]) + '</button>'; }).join('') + '</div>' +
+      (cc ? '<button type="button" class="btn danger" style="width:100%;margin-top:8px' + (clearArm ? ';background:var(--danger);color:var(--surface);border-color:var(--danger)' : '') + '" data-act="cleararm">' + (clearArm ? 'Tap again to clear ' + esc(names[cc]) : 'Clear ' + esc(names[cc]) + (cpn ? ' \u2013 ' + esc(cpn) : '')) + '</button>' +
+        '<p class="hint" style="margin-top:6px">Clears ' + esc(names[cc]) + '\u2019s ' + nReq + ' open request' + (nReq === 1 ? '' : 's') + ' and ' + nShip + ' shipment' + (nShip === 1 ? '' : 's') + (cpn ? ' for ' + esc(cpn) : ' with no pad') + '. Other crews and other pads are not touched.</p>'
+        : '<p class="hint" style="margin-top:6px">Pick the crew to clear. Only that crew\u2019s current pad is cleared.</p>') + '</div>';
+  }
   h += '<div class="foot"><button type="button" class="btn" data-act="savenames">Save names</button>' + (sheet && sheet.forced ? '' : '<button type="button" class="btn primary" data-act="close">Done</button>') + '</div>' +
     '<button type="button" class="btn ghost" data-act="leaveteam" style="align-self:center">Use a different team code</button></div>';
   return h;
@@ -1264,18 +1274,37 @@ function confirmShip() {
   render();
   toast('Shipment recorded');
 }
-function clearAll() {
+function shipsForClear(c) {
+  var pd = padOf(c), pn = pd ? pd.name : '';
+  return Object.keys(SH.cache).filter(function (id) { var s = SH.cache[id]; return s && s.crew === c && (s.pad || '') === pn; });
+}
+function clearCrewData(c) {
   if (!db) { toast('Needs signal to clear'); return; }
-  var shipIds = Object.keys(SH.cache);
-  pending = pending.filter(function (p) { return p.kind !== 'item' && p.kind !== 'ship'; });
+  var shipIds = shipsForClear(c), pd = padOf(c);
+  pending = pending.filter(function (p) { return !(p.kind === 'item' && p.loc === c) && !(p.kind === 'ship' && shipIds.indexOf(p.id) >= 0); });
   savePending();
-  ROLES.forEach(function (l) { db.doc('loc/' + l).delete(); });
-  shipIds.forEach(function (id) { db.doc('ship/' + id).delete(); });
-  cache = {}; SH.cache = {}; sel = {}; sendQ = {};
+  db.doc('loc/' + c).delete();
+  shipIds.forEach(function (id) { db.doc('ship/' + id).delete(); delete SH.cache[id]; });
+  cache[c] = {};
+  Object.keys(sel).forEach(function (k) { if (k.indexOf(c + '|') === 0) delete sel[k]; });
+  Object.keys(sendQ).forEach(function (k) { if (k.indexOf(c + '|') === 0) delete sendQ[k]; });
   persistCacheSoon();
+  clearCrew = ''; clearArm = 0;
   sheet = null; $('sheet').hidden = true; $('scrim').hidden = true;
   render();
-  toast('Cleared ' + shipIds.length + ' shipment' + (shipIds.length === 1 ? '' : 's') + ' and all requests');
+  toast('Cleared ' + names[c] + (pd ? ' \u2013 ' + pd.name : '') + ': ' + shipIds.length + ' shipment' + (shipIds.length === 1 ? '' : 's'));
+}
+function shipsFiltered(ignorePad) {
+  return shipsAll().filter(function (s) {
+    if (role === 'shop' && shipFilter !== 'all' && s.crew !== shipFilter) return false;
+    if (!ignorePad && shipPad !== 'all' && (s.pad || '') !== shipPad) return false;
+    return true;
+  });
+}
+function shipPadsFor() {
+  var seen = [];
+  shipsFiltered(true).forEach(function (s) { var pn = s.pad || ''; if (seen.indexOf(pn) < 0) seen.push(pn); });
+  return seen;
 }
 function setRole(r) {
   role = r; LS.set('wl_role', r);
@@ -1338,9 +1367,9 @@ async function exportCsv(loc) {
   if (!dlm) return;
   var rows;
   if (loc === 'ships') {
-    rows = [['Sent', 'Crew', 'Sent by', 'Carrier / note', 'Received', 'Part number', 'Description', 'Unit', 'Qty', 'Item note']];
-    shipsAll().forEach(function (s) {
-      s.items.forEach(function (it) { rows.push([new Date(s.ts).toISOString().slice(0, 16).replace('T', ' '), locName(s.crew), who(s.by), s.note || '', s.recvTs ? new Date(s.recvTs).toISOString().slice(0, 16).replace('T', ' ') : '', it.pn || '', it.desc || it.n, it.u || '', it.q || 0, it.note || '']); });
+    rows = [['Sent', 'Crew', 'Pad', 'Sent by', 'Carrier / note', 'Received', 'Part number', 'Description', 'Unit', 'Qty sent', 'Qty asked', 'Item note']];
+    shipsFiltered().forEach(function (s) {
+      s.items.forEach(function (it) { rows.push([new Date(s.ts).toISOString().slice(0, 16).replace('T', ' '), locName(s.crew), s.pad || '', who(s.by), s.note || '', s.recvTs ? new Date(s.recvTs).toISOString().slice(0, 16).replace('T', ' ') : '', it.pn || '', it.desc || it.n, it.u || '', it.q || 0, it.asked || it.q || 0, it.note || '']); });
     });
   } else {
     rows = [['Location', 'Status', 'Section', 'Part number', 'Description', 'Unit', 'Qty', 'Note', 'Updated']];
@@ -1357,7 +1386,7 @@ async function exportCsv(loc) {
   }
   if (rows.length === 1) { toast('Nothing to export'); return; }
   try {
-    await dlm.save({ filename: 'wireline-' + (loc === 'ships' ? 'shipments-' : 'parts-') + new Date().toISOString().slice(0, 10) + '.csv', data: rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n') });
+    await dlm.save({ filename: 'wireline-' + (loc === 'ships' ? 'shipments-' + (shipPad !== 'all' && shipPad ? shipPad.replace(/[^A-Za-z0-9]+/g, '-') + '-' : '') : 'parts-') + new Date().toISOString().slice(0, 10) + '.csv', data: rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n') });
     toast('Saved');
   } catch (e) { if (!e || e.code !== 'declined') toast('Could not save the file'); }
 }
@@ -1368,7 +1397,7 @@ document.addEventListener('click', function (ev) {
   var el = t.closest ? t.closest('[data-act]') : null;
   if (!el) return;
   var a = el.getAttribute('data-act'), d = el.dataset;
-  if (a === 'picker') { sheet = { type: 'picker' }; showSheet(); }
+  if (a === 'picker') { clearCrew = ''; clearArm = 0; sheet = { type: 'picker' }; showSheet(); }
   else if (a === 'role') { if (d.role === 'shop' && !shopOk()) { shopMsg = ''; sheet = { type: 'shopcode', prev: sheet }; showSheet(); var sc = $('shop-code'); if (sc) sc.focus(); } else setRole(d.role); }
   else if (a === 'pad') { var cur = padOf(d.crew); sheet = { type: 'pad', crew: d.crew, draft: cur ? JSON.parse(JSON.stringify(cur)) : blankPad() }; if (!Array.isArray(sheet.draft.wells)) sheet.draft.wells = []; if (sheet.draft.guns == null) sheet.draft.guns = 20; showSheet(); }
   else if (a === 'wellcount' && sheet && sheet.type === 'pad') { syncPadDraft(); var dw = sheet.draft.wells; if (Number(d.d) > 0) dw.push(newWell(dw.length, sheet.draft.guns)); else dw.pop(); renderSheet(); }
@@ -1400,13 +1429,15 @@ document.addEventListener('click', function (ev) {
   else if (a === 'bcrew') { boardCrew = d.crew; renderMain(); }
   else if (a === 'btab') { boardTab = d.bt; renderMain(); }
   else if (a === 'csel') { crewSel = d.crew; renderMain(); }
-  else if (a === 'sfilter') { shipFilter = d.crew; renderMain(); }
+  else if (a === 'sfilter') { shipFilter = d.crew; shipPad = 'all'; renderMain(); }
+  else if (a === 'spad') { shipPad = d.pad; renderMain(); }
+  else if (a === 'clearcrew') { clearCrew = clearCrew === d.crew ? '' : d.crew; clearArm = 0; renderSheet(); }
   else if (a === 'cats') { sheet = { type: 'cats' }; showSheet(); }
   else if (a === 'catpick') { secSel = d.sec === '' ? '' : SECTIONS[Number(d.i)]; sheet = null; $('sheet').hidden = true; $('scrim').hidden = true; renderTools(); renderMain(); window.scrollTo(0, 0); }
   else if (a === 'open') { sheet = { type: 'item', loc: d.loc, key: d.key }; showSheet(); }
   else if (a === 'adv') { if (d.to === 'ordered') { var ar = items(d.loc)[d.key]; advance(d.loc, d.key, 'ordered', null, ar ? sqFor(d.loc, d.key, ar) : 0); delete sendQ[d.loc + '|' + d.key]; } else advance(d.loc, d.key, d.to); }
   else if (a === 'sq') { var sr = items(d.crew)[d.key]; if (sr) { var sid = d.crew + '|' + d.key; sendQ[sid] = Math.max(1, Math.min(Number(sr.q) || 1, sqFor(d.crew, d.key, sr) + Number(d.d))); if (sendQ[sid] === Number(sr.q)) delete sendQ[sid]; renderMain(); } }
-  else if (a === 'cleararm') { if (Date.now() - clearArm < 6000) { clearArm = 0; clearAll(); } else { clearArm = Date.now(); renderSheet(); setTimeout(function () { if (clearArm && Date.now() - clearArm >= 6000) { clearArm = 0; if (sheet && sheet.type === 'picker') renderSheet(); } }, 6100); } }
+  else if (a === 'cleararm') { if (!clearCrew) return; if (Date.now() - clearArm < 6000) { var ccw = clearCrew; clearArm = 0; clearCrewData(ccw); } else { clearArm = Date.now(); renderSheet(); setTimeout(function () { if (clearArm && Date.now() - clearArm >= 6000) { clearArm = 0; if (sheet && sheet.type === 'picker') renderSheet(); } }, 6100); } }
   else if (a === 'selrow') { var id = d.crew + '|' + d.key; if (sel[id]) delete sel[id]; else sel[id] = 1; renderMain(); }
   else if (a === 'selall') { boardEntries().filter(function (e) { return (e.rec.st === boardTab) && (boardCrew === 'all' || e.crew === boardCrew); }).forEach(function (e) { sel[e.crew + '|' + e.key] = 1; }); renderMain(); }
   else if (a === 'selclear') { sel = {}; renderMain(); }
