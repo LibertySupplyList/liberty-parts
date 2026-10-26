@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="Liberty Parts">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
+<script>try { var wlT = JSON.parse(localStorage.getItem('wl_theme') || 'null'); if (wlT === 'dark' || wlT === 'light') document.documentElement.setAttribute('data-theme', wlT); } catch (e) {}</script>
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -80,6 +81,9 @@ button { cursor: pointer; }
 @media (max-width: 560px) { .bar h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } }
 .bar h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: .02em; text-transform: uppercase; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.iconbtn { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.iconbtn svg { width: 20px; height: 20px; }
+@media (max-width: 440px) { .sync.ok span { display: none; } .bar-right { gap: 6px; } }
 .who { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 6px; padding: 8px 12px; font-weight: 600; min-height: 40px; max-width: 140px; }
 .who span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sync { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
@@ -318,6 +322,7 @@ textarea.field { padding: 10px 12px; min-height: 140px; font-family: var(--font-
     <div class="brand"><img id="logo" class="logo" alt="Liberty"><h1>Wireline Parts</h1></div>
     <div class="bar-right">
       <span id="sync" class="sync"><i></i><span>Synced</span></span>
+      <button id="themebtn" class="iconbtn" data-act="theme" type="button" aria-label="Switch to dark mode"></button>
       <button id="who" class="who" data-act="picker" type="button"><span>Choose</span><span aria-hidden="true">&#9662;</span></button>
     </div>
   </div>
@@ -806,8 +811,9 @@ function updateSync() {
   if (!CFG || !CFG.firebase) { cls += ' bad'; label = 'Not set up'; msg = 'This copy is not connected to a database yet. Run the setup script, then open the link it gives you.'; }
   else if (navigator.onLine === false) { cls += ' warn'; label = 'Offline' + ((n + outstanding) ? ' · ' + (n + outstanding) + ' saved' : ''); }
   else if (n || outstanding) { cls += ' warn'; label = 'Syncing ' + (n + outstanding); }
-  el.className = cls;
+  el.className = cls + (label === 'Synced' ? ' ok' : '');
   txt.textContent = label;
+  el.title = label;
   banner.hidden = !msg;
   banner.firstChild.textContent = msg;
   syncTopH();
@@ -815,7 +821,27 @@ function updateSync() {
 
 /* ---------- header, tabs, tools ---------- */
 function syncTopH() { var t = $('top'); document.documentElement.style.setProperty('--topH', t.offsetHeight + 'px'); }
+var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
+var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>';
+function curTheme() {
+  var a = document.documentElement.getAttribute('data-theme');
+  if (a === 'dark' || a === 'light') return a;
+  try { return window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch (e) { return 'light'; }
+}
+function paintTheme() {
+  var t = curTheme(), b = $('themebtn');
+  if (b) { b.innerHTML = t === 'dark' ? SUN : MOON; b.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'); b.title = t === 'dark' ? 'Light mode' : 'Dark mode'; }
+  var mt = document.querySelector('meta[name="theme-color"]');
+  if (mt) mt.setAttribute('content', t === 'dark' ? '#161F26' : '#FFFFFF');
+}
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  LS.set('wl_theme', t);
+  paintTheme();
+}
+try { if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if (!LS.get('wl_theme', null)) paintTheme(); }); } catch (e) {}
 function renderHeader() {
+  paintTheme();
   $('who').firstChild.textContent = role ? locName(role) : 'Choose';
   var lg = $('logo');
   if (LOGO && LOGO.d) { if (lg.getAttribute('src') !== LOGO.d) lg.src = LOGO.d; lg.hidden = false; } else lg.hidden = true;
@@ -1503,6 +1529,7 @@ document.addEventListener('click', function (ev) {
   var el = t.closest ? t.closest('[data-act]') : null;
   if (!el) return;
   var a = el.getAttribute('data-act'), d = el.dataset;
+  if (a === 'theme') { setTheme(curTheme() === 'dark' ? 'light' : 'dark'); return; }
   if (a === 'picker') { clearCrew = ''; clearArm = 0; sheet = { type: 'picker' }; showSheet(); }
   else if (a === 'role') { if (d.role === 'shop' && !shopOk()) { shopMsg = ''; sheet = { type: 'shopcode', prev: sheet }; showSheet(); var sc = $('shop-code'); if (sc) sc.focus(); } else setRole(d.role); }
   else if (a === 'pad') { var cur = padOf(d.crew); sheet = { type: 'pad', crew: d.crew, draft: cur ? JSON.parse(JSON.stringify(cur)) : blankPad() }; if (!Array.isArray(sheet.draft.wells)) sheet.draft.wells = []; if (sheet.draft.guns == null) sheet.draft.guns = 20; showSheet(); }
