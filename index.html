@@ -536,6 +536,8 @@ function savePending() {
 function setItem(loc, key, patch) {
   var cur = items(loc)[key] || {};
   var rec = Object.assign({}, cur, patch, { ts: Date.now(), by: role });
+  if (patch.st === 'need' && cur.st !== 'need') rec.reqTs = rec.ts;
+  if (patch.st === '' ) rec.reqTs = 0;
   rec.st = rec.st || '';
   rec.q = Number(rec.q) || 0;
   rec.note = rec.note || '';
@@ -1262,7 +1264,7 @@ function confirmShip() {
     var list = groups[crew].sort(function (a, b) { return metaOf(a.key, a.rec).idx - metaOf(b.key, b.rec).idx; });
     var arr = list.map(function (e) {
       var m = metaOf(e.key, e.rec), sq = sqFor(e.crew, e.key, e.rec);
-      return { k: e.key, n: m.n, pn: m.pn, desc: m.desc, u: m.u, q: sq, asked: Number(e.rec.want) || Number(e.rec.q) || 0, note: e.rec.note || '' };
+      return { k: e.key, n: m.n, pn: m.pn, desc: m.desc, u: m.u, q: sq, asked: Number(e.rec.want) || Number(e.rec.q) || 0, note: e.rec.note || '', reqTs: e.rec.reqTs || 0 };
     });
     var spad = padOf(crew);
     setShip({ id: id, crew: crew, pad: spad ? spad.name : '', ts: ts, by: role, note: note, items: arr, recvTs: 0, recvBy: '' });
@@ -1363,30 +1365,33 @@ function copyText(text) {
   } catch (e) { fallback(); }
 }
 function csvCell(v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+function csvDate(ts) { if (!ts) return ''; var d = new Date(ts); return ('0' + (d.getMonth() + 1)).slice(-2) + '/' + ('0' + d.getDate()).slice(-2) + '/' + d.getFullYear(); }
+function csvTime(ts) { return ts ? new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''; }
+function localStamp() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 async function exportCsv(loc) {
   if (!dlm) return;
   var rows;
   if (loc === 'ships') {
-    rows = [['Sent', 'Crew', 'Pad', 'Sent by', 'Carrier / note', 'Received', 'Part number', 'Description', 'Unit', 'Qty sent', 'Qty asked', 'Item note']];
-    shipsFiltered().forEach(function (s) {
-      s.items.forEach(function (it) { rows.push([new Date(s.ts).toISOString().slice(0, 16).replace('T', ' '), locName(s.crew), s.pad || '', who(s.by), s.note || '', s.recvTs ? new Date(s.recvTs).toISOString().slice(0, 16).replace('T', ' ') : '', it.pn || '', it.desc || it.n, it.u || '', it.q || 0, it.asked || it.q || 0, it.note || '']); });
+    rows = [['Date sent', 'Time sent', 'Crew', 'Pad', 'Sent by', 'Carrier / note', 'Status', 'Date received', 'Time received', 'Received by', 'Date requested', 'Part number', 'Description', 'Unit', 'Qty sent', 'Qty asked', 'Item note']];
+    shipsFiltered().slice().sort(function (x, y) { return x.ts - y.ts; }).forEach(function (s) {
+      s.items.forEach(function (it) { rows.push([csvDate(s.ts), csvTime(s.ts), locName(s.crew), s.pad || '', who(s.by), s.note || '', s.recvTs ? 'Received' : 'In transit', csvDate(s.recvTs), csvTime(s.recvTs), s.recvTs && s.recvBy ? who(s.recvBy) : '', csvDate(it.reqTs), it.pn || '', it.desc || it.n, it.u || '', it.q || 0, it.asked || it.q || 0, it.note || '']); });
     });
   } else {
-    rows = [['Location', 'Status', 'Section', 'Part number', 'Description', 'Unit', 'Qty', 'Note', 'Updated']];
+    rows = [['Crew', 'Pad', 'Status', 'Section', 'Part number', 'Description', 'Unit', 'Qty', 'Qty asked', 'Note', 'Date requested', 'Date shipped', 'Last updated']];
     var locs = loc === 'all' ? CREWS : [loc];
     locs.forEach(function (l) {
-      var its = items(l);
+      var its = items(l), lp = padOf(l);
       Object.keys(its).forEach(function (k) {
         var r = its[k];
         if (!r || !r.st || r.st === 'have' || !known(k, r)) return;
-        var m = metaOf(k, r);
-        rows.push([locName(l), STATUS[r.st], m.s, m.pn, m.desc, m.u, r.q || 0, r.note || '', r.ts ? new Date(r.ts).toISOString().slice(0, 16).replace('T', ' ') : '']);
+        var m = metaOf(k, r), sp = r.st === 'sending' ? getShip(r.ship) : null;
+        rows.push([locName(l), lp ? lp.name : '', STATUS[r.st], m.s, m.pn, m.desc, m.u, r.q || 0, Number(r.want) || r.q || 0, r.note || '', csvDate(r.reqTs), sp ? csvDate(sp.ts) : '', r.ts ? csvDate(r.ts) + ' ' + csvTime(r.ts) : '']);
       });
     });
   }
   if (rows.length === 1) { toast('Nothing to export'); return; }
   try {
-    await dlm.save({ filename: 'wireline-' + (loc === 'ships' ? 'shipments-' + (shipPad !== 'all' && shipPad ? shipPad.replace(/[^A-Za-z0-9]+/g, '-') + '-' : '') : 'parts-') + new Date().toISOString().slice(0, 10) + '.csv', data: rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n') });
+    await dlm.save({ filename: 'wireline-' + (loc === 'ships' ? 'shipments-' + (shipPad !== 'all' && shipPad ? shipPad.replace(/[^A-Za-z0-9]+/g, '-') + '-' : '') : 'parts-') + localStamp() + '.csv', data: rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n') });
     toast('Saved');
   } catch (e) { if (!e || e.code !== 'declined') toast('Could not save the file'); }
 }
