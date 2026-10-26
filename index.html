@@ -171,6 +171,33 @@ body.hassel main { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)
 .tag.short { outline: 2px solid currentColor; outline-offset: -2px; }
 .shortflag { display: inline-block; background: var(--need-bg); color: var(--need); font-weight: 700; font-size: 12px; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
 .itemlist li.shortli { background: var(--need-bg); }
+.padbar { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "lbl nm go" "meta meta go"; align-items: center; gap: 2px 10px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-top: 10px; min-height: 56px; }
+.padbar .padlbl, .padbar .padcrew { grid-area: lbl; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); background: var(--surface-2); border-radius: 4px; padding: 2px 6px; }
+.padbar .padnm { grid-area: nm; font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; line-height: 1.1; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.padbar .padmeta { grid-area: meta; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); min-width: 0; flex-wrap: wrap; }
+.padbar .padgo { grid-area: go; font-size: 26px; color: var(--ink-2); line-height: 1; }
+.padbar.empty { grid-template-areas: "lbl nm go"; border-style: dashed; }
+.padbar.empty .padnm { font-family: var(--font-body); font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--accent); }
+.padlist { display: grid; gap: 6px; margin-top: 10px; }
+.padlist .padbar { margin-top: 0; min-height: 0; padding: 8px 10px; }
+.padbar.compact .padnm { font-size: 18px; }
+.wdots { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.wdots i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 1px var(--line); }
+.wdots i.nocol { background: repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 2px, var(--surface) 2px, var(--surface) 4px); }
+.maplink { display: inline-block; margin-top: 6px; font-weight: 600; color: var(--accent); }
+.padrow2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
+.wstep { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 48px; border: 1px solid var(--line); border-radius: 6px; padding: 0 4px; background: var(--bg); }
+.wstep b { font-family: var(--font-display); font-size: 24px; font-variant-numeric: tabular-nums; }
+.wellcard { border: 1px solid var(--line); border-left: 8px solid var(--wc); border-radius: 8px; padding: 10px; display: grid; gap: 8px; }
+.wellrow { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 8px; }
+.wellg { position: relative; }
+.wellg span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--ink-2); pointer-events: none; }
+.wellg .field { padding-right: 46px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); padding: 0; }
+.sw.on { outline: 3px solid var(--ink); outline-offset: 2px; }
+.wcname { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.wcname.muted { font-weight: 500; }
 .cact .inline { min-height: 40px; padding: 0 12px; margin: 0; }
 .cact .inline.alt { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
 
@@ -322,6 +349,20 @@ var names = Object.assign({ c1: 'Crew 1', c2: 'Crew 2', c3: 'Crew 3' }, LS.get('
 var cache = LS.get('wl_cache', {});
 var pending = LS.get('wl_pending', []);
 var SH = { cache: LS.get('wl_ships', {}) };
+var PADS = LS.get('wl_pads', {});
+var WELL_COLORS = [['red', 'Red', '#D32F2F'], ['orange', 'Orange', '#F57C00'], ['yellow', 'Yellow', '#FBC02D'], ['green', 'Green', '#2E9E4F'], ['blue', 'Blue', '#1E6FD9'], ['purple', 'Purple', '#7B3FB8'], ['pink', 'Pink', '#E2559A'], ['brown', 'Brown', '#7A5034'], ['black', 'Black', '#1B1B1B'], ['white', 'White', '#FFFFFF'], ['gray', 'Gray', '#9AA3AA'], ['teal', 'Teal', '#14958A']];
+var WCMAP = {}; WELL_COLORS.forEach(function (c) { WCMAP[c[0]] = c; });
+function padOf(crew) {
+  var d = PADS[crew] || null;
+  pending.forEach(function (p) { if (p.kind === 'pad' && p.crew === crew) d = p.data; });
+  return d && d.name ? d : null;
+}
+function padGuns(pd) { var t = 0; (pd.wells || []).forEach(function (w) { t += Number(w.guns) || 0; }); return t; }
+function setPad(crew, data) {
+  pending = pending.filter(function (p) { return !(p.kind === 'pad' && p.crew === crew); });
+  pending.push({ kind: 'pad', crew: crew, data: data });
+  savePending(); render(); flush();
+}
 var PHO = { idx: LS.get('wl_pidx', {}), mem: {}, busy: {} };
 var LOGO = { d: LOGO_SRC, ts: 0 };
 var db = null, readOnly = false, dbTried = false;
@@ -487,7 +528,7 @@ async function photoFromFile(file) {
 
 /* ---------- saving and syncing ---------- */
 var cacheTimer = null;
-function persistCacheSoon() { clearTimeout(cacheTimer); cacheTimer = setTimeout(function () { LS.set('wl_cache', cache); LS.set('wl_ships', SH.cache); LS.set('wl_pidx', PHO.idx); }, 300); }
+function persistCacheSoon() { clearTimeout(cacheTimer); cacheTimer = setTimeout(function () { LS.set('wl_cache', cache); LS.set('wl_ships', SH.cache); LS.set('wl_pidx', PHO.idx); LS.set('wl_pads', PADS); }, 300); }
 function savePending() {
   LS.set('wl_pending', pending.map(function (p) { return p.kind === 'photo' ? { kind: 'photo', key: p.key, ts: p.ts, by: p.by } : p; }));
 }
@@ -515,6 +556,7 @@ async function mergeDoc(path, obj) {
 async function writePending(p) {
   if (p.kind === 'names') { await db.doc('meta/crews').set(p.names); return; }
   if (p.kind === 'ship') { await db.doc('ship/' + p.id).set(p.data); return; }
+  if (p.kind === 'pad') { await db.doc('pad/' + p.crew).set(p.data); return; }
   if (p.kind === 'logo') { await db.doc('meta/logo').set({ d: p.d, ts: p.ts }); return; }
   if (p.kind === 'photo') {
     var d = p.d || (PHO.mem[p.key] && PHO.mem[p.key].d);
@@ -574,6 +616,13 @@ function subscribe() {
       cache[loc] = (d && d.items) || {};
       persistCacheSoon();
       render();
+    }, fsErr));
+  });
+  (role === 'shop' ? CREWS : [role]).forEach(function (c) {
+    unsubs.push(db.doc('pad/' + c).onSnapshot(function (snap) {
+      var d = snap.exists ? snap.data() : null;
+      if (d) PADS[c] = d; else delete PADS[c];
+      persistCacheSoon(); render();
     }, fsErr));
   });
   var sq = role === 'shop' ? db.collection('ship').orderBy('ts', 'desc').limit(300) : db.collection('ship').where('crew', '==', role).limit(300);
@@ -654,7 +703,8 @@ async function teamIdFor(code) {
 }
 function clearTeamData() {
   cache = {}; pending = []; SH.cache = {}; PHO.idx = {}; PHO.mem = {};
-  ['wl_cache', 'wl_pending', 'wl_ships', 'wl_pidx', 'wl_names'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+  PADS = {};
+  ['wl_cache', 'wl_pending', 'wl_ships', 'wl_pidx', 'wl_names', 'wl_pads'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
   names = { c1: 'Crew 1', c2: 'Crew 2', c3: 'Crew 3' };
 }
 function connect(onVerified) {
@@ -835,6 +885,7 @@ function listHTML(loc) {
   var h = '<div class="wrap"><div class="listhead"><div><h2>' + esc(locName(loc)) + (loc === 'shop' ? ' stock' : ' list') + '</h2><p>' +
     open + ' open</p></div><div class="actions"><button type="button" class="btn" data-act="copylist" data-loc="' + loc + '">Copy</button>' +
     (dlm ? '<button type="button" class="btn" data-act="csv" data-loc="' + loc + '">CSV</button>' : '') + '</div></div>';
+  if (CREWS.indexOf(loc) >= 0) h += padBarHTML(loc);
   var titles = { sending: 'Sending', ordered: 'On order', need: 'Need', have: 'On hand' };
   var any = false;
   ['sending', 'ordered', 'need'].forEach(function (s) {
@@ -865,12 +916,27 @@ function stockLabel(key, total) {
   if (s && s.st === 'ordered') return '<span class="stock">Shop on order: ' + s.q + '</span>';
   return '<span class="stock">Shop stock not counted</span>';
 }
+function wellDots(pd, max) {
+  var ws = (pd && pd.wells) || [];
+  return '<span class="wdots">' + ws.slice(0, max || 12).map(function (w) { var c = WCMAP[w.color]; return '<i style="background:' + (c ? c[2] : 'transparent') + '"' + (c ? '' : ' class="nocol"') + '></i>'; }).join('') + '</span>';
+}
+function padBarHTML(crew, compact) {
+  var pd = padOf(crew);
+  if (!pd) return '<button type="button" class="padbar empty' + (compact ? ' compact' : '') + '" data-act="pad" data-crew="' + crew + '">' + (compact ? '<span class="padcrew">' + esc(names[crew]) + '</span>' : '<span class="padlbl">Pad</span>') + '<span class="padnm">+ Add pad</span></button>';
+  var nw = (pd.wells || []).length, g = padGuns(pd);
+  return '<button type="button" class="padbar' + (compact ? ' compact' : '') + '" data-act="pad" data-crew="' + crew + '">' +
+    (compact ? '<span class="padcrew">' + esc(names[crew]) + '</span>' : '<span class="padlbl">Pad</span>') +
+    '<span class="padnm">' + esc(pd.name) + '</span>' +
+    '<span class="padmeta">' + wellDots(pd) + '<span>' + nw + ' well' + (nw === 1 ? '' : 's') + (g ? ' · ' + g + ' guns' : '') + '</span></span>' +
+    '<span class="padgo" aria-hidden="true">›</span></button>';
+}
 function boardHTML() {
   var all = boardEntries().filter(function (e) { return boardCrew === 'all' || e.crew === boardCrew; });
   var counts = { need: 0, ordered: 0, sending: 0 };
   all.forEach(function (e) { counts[e.rec.st]++; });
   var h = '<div class="wrap"><div class="listhead"><div><h2>Board</h2><p>Requests from all crews</p></div><div class="actions"><button type="button" class="btn" data-act="copyboard">Copy</button>' +
     (dlm ? '<button type="button" class="btn" data-act="csv" data-loc="all">CSV</button>' : '') + '</div></div>';
+  h += boardCrew === 'all' ? '<div class="padlist">' + CREWS.map(function (c) { return padBarHTML(c, true); }).join('') + '</div>' : padBarHTML(boardCrew);
   h += '<div class="chips"><button type="button" class="chip' + (boardCrew === 'all' ? ' on' : '') + '" data-act="bcrew" data-crew="all">All crews</button>' +
     CREWS.map(function (c) { return '<button type="button" class="chip' + (boardCrew === c ? ' on' : '') + '" data-act="bcrew" data-crew="' + c + '">' + esc(names[c]) + '</button>'; }).join('') + '</div>';
   h += '<div class="tabs">' + [['need', 'Need'], ['ordered', 'On order'], ['sending', 'Sending']].map(function (t) {
@@ -930,7 +996,7 @@ function shipsHTML() {
     var first = s.items.slice(0, 3).map(function (it) { return it.desc || it.n; }).join(', ') + (s.items.length > 3 ? ' +' + (s.items.length - 3) + ' more' : '');
     h += '<button type="button" class="shipcard" data-act="openship" data-id="' + esc(s.id) + '"><div class="top"><span class="when">' + (role === 'shop' ? esc(locName(s.crew)) + ' · ' : '') + esc(new Date(s.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })) + '</span>' +
       (s.recvTs ? '<span class="tag s-have">Received ' + esc(fmtS(s.recvTs)) + '</span>' : '<span class="tag s-sending">In transit</span>') + '</div>' +
-      '<div class="sub">' + s.items.length + ' item' + (s.items.length === 1 ? '' : 's') + ' · ' + qty + ' pcs' + (s.note ? ' · ' + esc(s.note) : '') + '</div><div class="sub">' + esc(first) + '</div></button>';
+      '<div class="sub">' + (s.pad ? esc(s.pad) + ' · ' : '') + s.items.length + ' item' + (s.items.length === 1 ? '' : 's') + ' · ' + qty + ' pcs' + (s.note ? ' · ' + esc(s.note) : '') + '</div><div class="sub">' + esc(first) + '</div></button>';
   });
   return h + '</div>';
 }
@@ -1043,6 +1109,48 @@ function shopCodeHTML() {
     (shopMsg ? '<div class="banner-st s-need">' + esc(shopMsg) + '</div>' : '') +
     '<div class="foot"><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-act="shopunlock"' + (shopBusy ? ' disabled' : '') + '>' + (shopBusy ? 'Checking\u2026' : 'Unlock') + '</button></div></div>';
 }
+function blankPad() { return { name: '', coords: '', guns: 20, wells: [] }; }
+function newWell(i, guns) { return { name: 'Well ' + (i + 1), color: '', guns: guns, custom: false }; }
+function syncPadDraft() {
+  if (!sheet || sheet.type !== 'pad') return;
+  var d = sheet.draft, el;
+  if ((el = $('pad-name'))) d.name = el.value;
+  if ((el = $('pad-coords'))) d.coords = el.value;
+  if ((el = $('pad-guns'))) {
+    var ng = Math.max(0, parseInt(el.value, 10) || 0);
+    if (el.value !== '' && ng !== d.guns) { d.wells.forEach(function (w, i) { if (!w.custom) { w.guns = ng; var wg = $('well-g-' + i); if (wg) wg.value = ng; } }); d.guns = ng; }
+  }
+  d.wells.forEach(function (w, i) {
+    var n = $('well-n-' + i), gEl = $('well-g-' + i);
+    if (n) w.name = n.value;
+    if (gEl && gEl.value !== '') { var v = Math.max(0, parseInt(gEl.value, 10) || 0); if (v !== w.guns) { w.guns = v; w.custom = v !== d.guns; } }
+  });
+}
+function mapsLink(coords) {
+  var m = /(-?\d{1,3}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)/.exec(coords || '');
+  return m ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(m[1] + ',' + m[2]) : '';
+}
+function padSheetHTML() {
+  var d = sheet.draft, crew = sheet.crew, total = padGuns(d), ml = mapsLink(d.coords);
+  var h = '<div class="grab"></div><div class="stack"><div><h2>' + esc(names[crew]) + ' pad</h2><p class="meta" style="margin:0">Everyone on ' + esc(names[crew]) + ' and the shop sees this.</p></div>' +
+    '<div><label class="lbl" for="pad-name">Pad name</label><input id="pad-name" class="field" type="text" maxlength="60" autocapitalize="characters" placeholder="EOG WHITACRE" value="' + esc(d.name) + '"></div>' +
+    '<div><label class="lbl" for="pad-coords">Coordinates</label><input id="pad-coords" class="field" type="text" maxlength="80" inputmode="text" placeholder="31.8457, -102.3676" value="' + esc(d.coords) + '">' +
+    (ml ? '<a class="maplink" href="' + ml + '" target="_blank" rel="noopener">Open in Maps ›</a>' : '') + '</div>' +
+    '<div class="padrow2"><div><label class="lbl" for="pad-guns">Guns per well</label><input id="pad-guns" class="field" type="number" inputmode="numeric" min="0" max="999" value="' + esc(d.guns) + '"></div>' +
+    '<div><label class="lbl">Wells</label><div class="wstep"><button type="button" class="qbtn" data-act="wellcount" data-d="-1" aria-label="Fewer wells"' + (d.wells.length ? '' : ' disabled') + '>−</button><b>' + d.wells.length + '</b><button type="button" class="qbtn" data-act="wellcount" data-d="1" aria-label="More wells"' + (d.wells.length >= 30 ? ' disabled' : '') + '>+</button></div></div></div>';
+  if (d.wells.length) h += '<p class="hint" style="margin:0">' + d.wells.length + ' wells · ' + total + ' guns total. Change a well’s guns if it’s different.</p>';
+  d.wells.forEach(function (w, i) {
+    var c = WCMAP[w.color];
+    h += '<div class="wellcard" style="--wc:' + (c ? c[2] : 'var(--line)') + '"><div class="wellrow"><input id="well-n-' + i + '" class="field" type="text" maxlength="40" aria-label="Well ' + (i + 1) + ' name" value="' + esc(w.name) + '">' +
+      '<div class="wellg"><input id="well-g-' + i + '" class="field" type="number" inputmode="numeric" min="0" max="999" aria-label="Guns for well ' + (i + 1) + '" value="' + esc(w.guns) + '"><span>guns</span></div></div>' +
+      '<div class="swatches" role="group" aria-label="Well ' + (i + 1) + ' color">' + WELL_COLORS.map(function (col) {
+        return '<button type="button" class="sw' + (w.color === col[0] ? ' on' : '') + '" style="background:' + col[2] + '" data-act="wellcolor" data-i="' + i + '" data-c="' + col[0] + '" aria-label="' + col[1] + '" aria-pressed="' + (w.color === col[0]) + '"></button>';
+      }).join('') + '</div>' + (c ? '<span class="wcname">' + c[1] + '</span>' : '<span class="wcname muted">Pick a color</span>') + (w.custom ? '<span class="wcname">· ' + w.guns + ' guns (different)</span>' : '') + '</div>';
+  });
+  h += '<div class="foot"><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-act="padsave">Save pad</button></div>';
+  if (padOf(crew)) h += '<button type="button" class="btn danger ghost" data-act="padclear" style="align-self:center">' + (sheet.clearArm ? 'Tap again to clear this pad' : 'Clear pad (moved to a new location)') + '</button>';
+  return h + '</div>';
+}
 function teamSheetHTML() {
   return '<div class="grab"></div><div class="stack"><img class="biglogo" alt="Liberty" src="' + LOGO_SRC + '"><div><h2>Enter your team code</h2><p class="meta" style="margin:0">Get the code from the shop. You only enter it once on this phone.</p></div>' +
     '<div><label class="lbl" for="team-code">Team code</label><input id="team-code" class="field" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" maxlength="40"' + (teamBusy ? ' disabled' : '') + '></div>' +
@@ -1089,7 +1197,7 @@ function shipSheetHTML() {
   if (!s) return '<div class="grab"></div><div class="stack"><h2>Shipment not found</h2><div class="foot"><button type="button" class="btn primary" data-act="close">Close</button></div></div>';
   var its = items(s.crew), qty = 0;
   s.items.forEach(function (it) { qty += it.q || 0; });
-  var h = '<div class="grab"></div><div class="stack"><div><h2>Shipment to ' + esc(locName(s.crew)) + '</h2><p class="meta" style="margin:0">Sent ' + esc(fmtDT(s.ts)) + ' by ' + esc(who(s.by)) + '</p></div>' +
+  var h = '<div class="grab"></div><div class="stack"><div><h2>Shipment to ' + esc(locName(s.crew)) + '</h2><p class="meta" style="margin:0">' + (s.pad ? esc(s.pad) + ' · ' : '') + 'Sent ' + esc(fmtDT(s.ts)) + ' by ' + esc(who(s.by)) + '</p></div>' +
     (s.recvTs ? '<div class="banner-st s-have">Received ' + esc(fmtDT(s.recvTs)) + (s.recvBy ? ' by ' + esc(who(s.recvBy)) : '') + '</div>' : '<div class="banner-st s-sending">In transit</div>') +
     (s.note ? '<p class="hint">' + esc(s.note) + '</p>' : '') +
     '<p class="hint">' + s.items.length + ' items · ' + qty + ' pcs</p><ul class="itemlist">' + s.items.map(function (it) {
@@ -1103,7 +1211,7 @@ function shipSheetHTML() {
 function renderSheet() {
   if (!sheet) return;
   var s = $('sheet'), t = sheet.type;
-  s.innerHTML = t === 'team' ? teamSheetHTML() : t === 'shopcode' ? shopCodeHTML() : t === 'item' ? itemSheetHTML() : t === 'picker' ? pickerHTML() : t === 'add' ? addSheetHTML() : t === 'photo' ? photoSheetHTML() : t === 'cats' ? catsSheetHTML() : t === 'shipreview' ? shipReviewHTML() : t === 'ship' ? shipSheetHTML() : textSheetHTML();
+  s.innerHTML = t === 'team' ? teamSheetHTML() : t === 'shopcode' ? shopCodeHTML() : t === 'pad' ? padSheetHTML() : t === 'item' ? itemSheetHTML() : t === 'picker' ? pickerHTML() : t === 'add' ? addSheetHTML() : t === 'photo' ? photoSheetHTML() : t === 'cats' ? catsSheetHTML() : t === 'shipreview' ? shipReviewHTML() : t === 'ship' ? shipSheetHTML() : textSheetHTML();
 }
 function showSheet() { renderSheet(); $('sheet').hidden = false; $('scrim').hidden = false; if (sheet && sheet.type === 'text') { var b = $('txt-box'); if (b) { b.focus(); b.select(); } } }
 function closeSheet() {
@@ -1146,7 +1254,8 @@ function confirmShip() {
       var m = metaOf(e.key, e.rec), sq = sqFor(e.crew, e.key, e.rec);
       return { k: e.key, n: m.n, pn: m.pn, desc: m.desc, u: m.u, q: sq, asked: Number(e.rec.want) || Number(e.rec.q) || 0, note: e.rec.note || '' };
     });
-    setShip({ id: id, crew: crew, ts: ts, by: role, note: note, items: arr, recvTs: 0, recvBy: '' });
+    var spad = padOf(crew);
+    setShip({ id: id, crew: crew, pad: spad ? spad.name : '', ts: ts, by: role, note: note, items: arr, recvTs: 0, recvBy: '' });
     list.forEach(function (e) { advance(crew, e.key, 'sending', id, sqFor(e.crew, e.key, e.rec)); delete sendQ[e.crew + '|' + e.key]; });
   });
   sel = {};
@@ -1212,7 +1321,7 @@ function boardText() {
   return all.length ? t.join('\n') : label + ': nothing right now';
 }
 function shipText(s) {
-  var t = ['SHIPMENT TO ' + locName(s.crew).toUpperCase(), 'Sent ' + fmtDT(s.ts) + ' by ' + who(s.by)];
+  var t = ['SHIPMENT TO ' + locName(s.crew).toUpperCase() + (s.pad ? ' – ' + s.pad : ''), 'Sent ' + fmtDT(s.ts) + ' by ' + who(s.by)];
   if (s.note) t.push(s.note);
   t.push(s.recvTs ? 'Received ' + fmtDT(s.recvTs) : 'In transit', '');
   s.items.forEach(function (it) { t.push('- ' + (it.q || 0) + ' x ' + (it.n) + (Number(it.asked) > Number(it.q) ? ' (! ' + it.q + ' of ' + it.asked + ')' : '') + (it.u ? ' [' + it.u + ']' : '') + (it.note ? ' – ' + it.note : '')); });
@@ -1261,6 +1370,21 @@ document.addEventListener('click', function (ev) {
   var a = el.getAttribute('data-act'), d = el.dataset;
   if (a === 'picker') { sheet = { type: 'picker' }; showSheet(); }
   else if (a === 'role') { if (d.role === 'shop' && !shopOk()) { shopMsg = ''; sheet = { type: 'shopcode', prev: sheet }; showSheet(); var sc = $('shop-code'); if (sc) sc.focus(); } else setRole(d.role); }
+  else if (a === 'pad') { var cur = padOf(d.crew); sheet = { type: 'pad', crew: d.crew, draft: cur ? JSON.parse(JSON.stringify(cur)) : blankPad() }; if (!Array.isArray(sheet.draft.wells)) sheet.draft.wells = []; if (sheet.draft.guns == null) sheet.draft.guns = 20; showSheet(); }
+  else if (a === 'wellcount' && sheet && sheet.type === 'pad') { syncPadDraft(); var dw = sheet.draft.wells; if (Number(d.d) > 0) dw.push(newWell(dw.length, sheet.draft.guns)); else dw.pop(); renderSheet(); }
+  else if (a === 'wellcolor' && sheet && sheet.type === 'pad') { syncPadDraft(); var wl = sheet.draft.wells[Number(d.i)]; if (wl) wl.color = wl.color === d.c ? '' : d.c; renderSheet(); }
+  else if (a === 'padsave' && sheet && sheet.type === 'pad') {
+    syncPadDraft();
+    var pd = sheet.draft; pd.name = (pd.name || '').trim().toUpperCase(); pd.coords = (pd.coords || '').trim();
+    if (!pd.name) { var pn = $('pad-name'); if (pn) { pn.focus(); pn.placeholder = 'Type the pad name first'; } return; }
+    pd.ts = Date.now(); pd.by = role;
+    var pc = sheet.crew; sheet = null; $('sheet').hidden = true; $('scrim').hidden = true;
+    setPad(pc, pd); toast('Pad saved');
+  }
+  else if (a === 'padclear' && sheet && sheet.type === 'pad') {
+    if (sheet.clearArm && Date.now() - sheet.clearArm < 6000) { var cc = sheet.crew; sheet = null; $('sheet').hidden = true; $('scrim').hidden = true; setPad(cc, { name: '', coords: '', guns: 20, wells: [], ts: Date.now(), by: role }); toast('Pad cleared'); }
+    else { syncPadDraft(); sheet.clearArm = Date.now(); renderSheet(); }
+  }
   else if (a === 'shopunlock') { var sci = $('shop-code'); unlockShop(sci ? sci.value : ''); }
   else if (a === 'savenames') setNames();
   else if (a === 'jointeam') { var tc = $('team-code'); joinTeam(tc ? tc.value : ''); }
@@ -1334,6 +1458,8 @@ $('ph-file').addEventListener('change', async function (e) {
   try { toast('Saving photo…'); setPhoto(key, await photoFromFile(f)); toast('Photo saved'); } catch (err) { toast('Could not read that picture'); }
 });
 $('q').addEventListener('input', function (e) { q = e.target.value; renderMain(); });
+$('sheet').addEventListener('input', function (e) { if (sheet && sheet.type === 'pad' && e.target && /^(pad-|well-)/.test(e.target.id || '')) syncPadDraft(); });
+$('sheet').addEventListener('change', function (e) { if (sheet && sheet.type === 'pad' && e.target && /^(pad-guns|pad-coords|well-g-)/.test(e.target.id || '')) { syncPadDraft(); var id = e.target.id; renderSheet(); var el = $(id); if (el) el.blur(); } });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); if (e.key === 'Enter' && e.target && e.target.id === 'team-code') joinTeam(e.target.value); if (e.key === 'Enter' && e.target && e.target.id === 'shop-code') unlockShop(e.target.value); });
 window.addEventListener('resize', syncTopH);
 
