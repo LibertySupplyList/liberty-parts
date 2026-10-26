@@ -128,11 +128,13 @@ body.hassel main { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)
 .btn.danger { color: var(--danger); }
 .addrow { padding: 18px 0 6px; text-align: center; }
 
-.listhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding: 16px 0 4px; flex-wrap: wrap; }
-.listhead h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 26px; text-transform: uppercase; letter-spacing: .02em; line-height: 1; }
+.listhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding: 16px 0 4px; flex-wrap: nowrap; }
+.listhead > div:first-child { min-width: 0; }
+.listhead h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 26px; text-transform: uppercase; letter-spacing: .02em; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .listhead p { margin: 4px 0 0; color: var(--ink-2); font-size: 13px; }
-.actions { display: flex; gap: 8px; }
-.actions .btn { min-height: 40px; padding: 0 14px; font-size: 14px; }
+.actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.actions .btn { min-height: 40px; padding: 0 11px; font-size: 14px; }
+.actions .printbtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
 .seg { display: flex; gap: 6px; flex-wrap: wrap; }
 .segbtn { flex: 1 1 0; min-width: 76px; min-height: 48px; border: 2px solid var(--line); border-radius: 6px; background: var(--surface); font-weight: 600; }
@@ -261,6 +263,50 @@ textarea.field { padding: 10px 12px; min-height: 140px; font-family: var(--font-
 .catopt .ct { font-size: 12px; color: var(--ink-2); font-weight: 600; white-space: nowrap; }
 .catopt .fl { background: var(--need); color: var(--surface); border-radius: 999px; font-size: 12px; padding: 1px 8px; font-weight: 700; }
 #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(86px + env(safe-area-inset-bottom, 0px)); z-index: 30; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: 14px; max-width: 90%; }
+#printroot { display: none; }
+.paperwrap { overflow: hidden; border-radius: 6px; background: #8a939a; padding: 10px; }
+.paper { background: #fff; color: #111; width: 720px; max-width: none; padding: 28px 30px; box-shadow: 0 2px 10px rgba(0,0,0,.3); transform-origin: top left; }
+.pdoc { font-family: var(--font-body); color: #111; font-size: 11px; line-height: 1.3; }
+.pdoc .phead { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 3px solid #111; padding-bottom: 8px; }
+.pdoc .plogo { height: 34px; width: auto; }
+.pdoc .ptitle { text-align: right; }
+.pdoc .pt1 { font-family: var(--font-display); font-weight: 700; font-size: 22px; text-transform: uppercase; letter-spacing: .03em; }
+.pdoc .pt2 { font-size: 10px; color: #444; }
+.pdoc table { width: 100%; border-collapse: collapse; }
+.pdoc .pinfo { margin: 8px 0 10px; }
+.pdoc .pinfo th { text-align: left; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: #555; width: 80px; padding: 3px 6px 3px 0; vertical-align: top; }
+.pdoc .pinfo td { padding: 3px 12px 3px 0; font-weight: 600; vertical-align: top; }
+.pdoc .pinfo td:nth-child(2) { white-space: nowrap; width: 150px; }
+.pdoc .pwell { display: inline-flex; align-items: center; gap: 4px; margin: 0 10px 2px 0; font-weight: 500; white-space: nowrap; }
+.pdoc .pwell i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid #555; display: inline-block; }
+.pdoc .plist th { text-align: left; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; border-bottom: 1.5px solid #111; padding: 4px 6px; }
+.pdoc .plist td { border-bottom: 1px solid #c9ced2; padding: 3px 6px; vertical-align: top; }
+.pdoc .pgrp { break-inside: avoid; page-break-inside: avoid; }
+.pdoc .plist .pc { width: 18px; text-align: center; }
+.pdoc .pbox { display: inline-block; width: 11px; height: 11px; border: 1.5px solid #111; }
+.pdoc .plist .pq { width: 44px; white-space: nowrap; }
+.pdoc .plist .pq b { font-size: 12px; }
+.pdoc .plist .pu { width: 56px; color: #333; }
+.pdoc .plist .pp { width: 120px; font-family: var(--font-mono); font-size: 10px; }
+.pdoc .plist .ps { width: 84px; white-space: nowrap; }
+.pdoc .plist .pnote { width: 130px; color: #222; font-style: italic; }
+.pdoc .psec td { background: #eef0f2; border-left: 5px solid hsl(var(--h, 210) var(--cs, 62%) 42%); font-size: 8px; letter-spacing: .07em; text-transform: uppercase; padding: 1px 8px; line-height: 1.2; }
+.pdoc .psec td span { float: right; color: #555; }
+.pdoc .pshort td { background: #fdf0de; }
+.pdoc .pshort .ps { font-weight: 700; color: #8a4500; }
+.pdoc .psign { display: grid; grid-template-columns: 2fr 1fr 2fr 1fr; gap: 14px; margin-top: 22px; font-size: 10px; color: #333; }
+.pdoc .psign span { display: block; border-bottom: 1px solid #111; height: 18px; }
+.pdoc tr { break-inside: avoid; }
+.pdoc thead { display: table-header-group; }
+@media print {
+  @page { size: letter; margin: 0.4in; }
+  :root { padding: 0 !important; background: #fff !important; }
+  body.printing { background: #fff !important; }
+  body.printing > *:not(#printroot) { display: none !important; }
+  body.printing::before { display: none !important; }
+  body.printing #printroot { display: block !important; }
+  .pdoc, .pdoc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 @media (prefers-reduced-motion: no-preference) { #sheet { animation: up .18s ease-out; } @keyframes up { from { transform: translateY(24px); opacity: .6; } } }
 </style>
 </head>
@@ -288,6 +334,7 @@ textarea.field { padding: 10px 12px; min-height: 140px; font-family: var(--font-
 <div id="scrim" hidden></div>
 <div id="sheet" hidden role="dialog" aria-modal="true"></div>
 <div id="toast" hidden role="status"></div>
+<div id="printroot" aria-hidden="true"></div>
 <input id="ph-file" type="file" accept="image/*" hidden>
 
 <script src="config.js"></script>
@@ -884,8 +931,8 @@ function inlineAction(loc, rec) {
 function shipNote(rec) { var s = rec.st === 'sending' ? getShip(rec.ship) : null; return s ? 'shipped ' + fmtS(s.ts) : ''; }
 function listHTML(loc) {
   var g = groupsFor(loc), open = g.sending.length + g.ordered.length + g.need.length;
-  var h = '<div class="wrap"><div class="listhead"><div><h2>' + esc(locName(loc)) + (loc === 'shop' ? ' stock' : ' list') + '</h2><p>' +
-    open + ' open</p></div><div class="actions"><button type="button" class="btn" data-act="copylist" data-loc="' + loc + '">Copy</button>' +
+  var h = '<div class="wrap"><div class="listhead"><div><h2>' + esc(locName(loc)) + (loc === 'shop' ? ' stock' : '') + '</h2><p>' +
+    (loc === 'shop' ? '' : 'Parts list \u00b7 ') + open + ' open</p></div><div class="actions">' + (open ? '<button type="button" class="btn printbtn" data-act="printlist" data-loc="' + loc + '">Print</button>' : '') + '<button type="button" class="btn" data-act="copylist" data-loc="' + loc + '">Copy</button>' +
     (dlm ? '<button type="button" class="btn" data-act="csv" data-loc="' + loc + '">CSV</button>' : '') + '</div></div>';
   if (CREWS.indexOf(loc) >= 0) h += padBarHTML(loc);
   var titles = { sending: 'Sending', ordered: 'On order', need: 'Need', have: 'On hand' };
@@ -1163,6 +1210,52 @@ function padSheetHTML() {
   if (padOf(crew)) h += '<button type="button" class="btn danger ghost" data-act="padclear" style="align-self:center">' + (sheet.clearArm ? 'Tap again to clear this pad' : 'Clear pad (moved to a new location)') + '</button>';
   return h + '</div>';
 }
+function printDoc(loc) {
+  var g = groupsFor(loc), list = g.sending.concat(g.ordered, g.need);
+  list.sort(function (a, b) { return a.m.idx - b.m.idx || a.m.desc.localeCompare(b.m.desc); });
+  var pd = CREWS.indexOf(loc) >= 0 ? padOf(loc) : null, pcs = 0, now = Date.now();
+  list.forEach(function (x) { pcs += Number(x.rec.q) || 0; });
+  var h = '<div class="pdoc"><div class="phead"><img class="plogo" alt="Liberty" src="' + LOGO_SRC + '"><div class="ptitle"><div class="pt1">' + esc(locName(loc)) + ' parts list</div>' +
+    '<div class="pt2">Printed ' + esc(csvDate(now)) + ' ' + esc(csvTime(now)) + '</div></div></div>';
+  h += '<table class="pinfo"><tr><th>Crew</th><td>' + esc(locName(loc)) + '</td><th>Pad</th><td>' + (pd ? esc(pd.name) : '—') + '</td></tr>';
+  if (pd && (pd.coords || (pd.wells || []).length)) {
+    h += '<tr><th>Coordinates</th><td>' + esc(pd.coords || '—') + '</td><th>Wells</th><td>' + (pd.wells || []).map(function (w) { var c = WCMAP[w.color]; return '<span class="pwell"><i style="background:' + (c ? c[2] : '#fff') + '"></i>' + esc(w.name || '') + (c ? ' (' + c[1] + ')' : '') + ' · ' + (w.guns || 0) + '/stage</span>'; }).join('') + '</td></tr>';
+  }
+  h += '<tr><th>Lines</th><td>' + list.length + '</td><th>Pieces</th><td>' + pcs + '</td></tr></table>';
+  h += '<table class="plist"><thead><tr><th class="pc">✓</th><th class="pq">Qty</th><th class="pu">Unit</th><th class="pp">Part #</th><th>Description</th><th class="ps">Status</th><th class="pnote">Note</th></tr></thead>';
+  var sec = '';
+  list.forEach(function (x) {
+    if (x.m.s !== sec) { h += (sec ? '</tbody>' : '') + '<tbody class="pgrp">'; sec = x.m.s; var cnt = list.filter(function (y) { return y.m.s === sec; }).length; h += '<tr class="psec cc" style="' + secStyle(sec) + '"><td colspan="7"><b>' + esc(sec) + '</b><span>' + cnt + '</span></td></tr>'; }
+    var r = x.rec, st = STATUS[r.st], sp = r.st === 'sending' ? getShip(r.ship) : null;
+    if (sp) st += ' ' + csvDate(sp.ts).slice(0, 5);
+    var short = isShort(r) ? ' of ' + r.want : '', flag = isShort(r) || (r.st === 'need' && r.back);
+    h += '<tr' + (flag ? ' class="pshort"' : '') + '><td class="pc"><span class="pbox"></span></td><td class="pq"><b>' + (r.q || 0) + '</b>' + esc(short) + '</td><td class="pu">' + esc(x.m.u || '') + '</td><td class="pp">' + esc(x.m.pn || '') + '</td><td>' + esc(x.m.desc) + '</td><td class="ps">' + (flag ? '! ' : '') + esc(st) + '</td><td class="pnote">' + esc(r.note || '') + '</td></tr>';
+  });
+  h += (sec ? '</tbody>' : '') + '</table>';
+  h += '<div class="psign"><div>Pulled by <span></span></div><div>Date <span></span></div><div>Received by <span></span></div><div>Date <span></span></div></div>';
+  return h + '</div>';
+}
+function printSheetHTML() {
+  return '<div class="grab"></div><div class="stack"><div><h2>Print ' + esc(locName(sheet.loc)) + ' list</h2><p class="meta" style="margin:0">This is how the page will print. On iPhone, tap Print, then pick your printer or Save to Files as a PDF.</p></div>' +
+    '<div class="paperwrap"><div class="paper">' + printDoc(sheet.loc) + '</div></div>' +
+    '<div class="foot"><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" data-act="printnow">Print</button></div></div>';
+}
+function fitPaper() {
+  var w = $('sheet').querySelector('.paperwrap'), pp = w && w.querySelector('.paper');
+  if (!pp) return;
+  var sc = Math.min(1, (w.clientWidth - 20) / 720);
+  pp.style.transform = 'scale(' + sc + ')';
+  w.style.height = Math.ceil(pp.offsetHeight * sc + 20) + 'px';
+}
+window.addEventListener('resize', function () { if (sheet && sheet.type === 'print') fitPaper(); });
+function doPrint() {
+  var root = $('printroot');
+  root.innerHTML = printDoc(sheet.loc);
+  document.body.classList.add('printing');
+  var done = function () { document.body.classList.remove('printing'); root.innerHTML = ''; window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  setTimeout(function () { try { window.print(); } catch (e) { toast('This phone could not open printing. Open the link in Safari or Chrome and try again.'); } setTimeout(function () { if (document.body.classList.contains('printing') && !window.matchMedia('print').matches) done(); }, 60000); }, 50);
+}
 function teamSheetHTML() {
   return '<div class="grab"></div><div class="stack"><img class="biglogo" alt="Liberty" src="' + LOGO_SRC + '"><div><h2>Enter your team code</h2><p class="meta" style="margin:0">Get the code from the shop. You only enter it once on this phone.</p></div>' +
     '<div><label class="lbl" for="team-code">Team code</label><input id="team-code" class="field" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" maxlength="40"' + (teamBusy ? ' disabled' : '') + '></div>' +
@@ -1223,7 +1316,7 @@ function shipSheetHTML() {
 function renderSheet() {
   if (!sheet) return;
   var s = $('sheet'), t = sheet.type;
-  s.innerHTML = t === 'team' ? teamSheetHTML() : t === 'shopcode' ? shopCodeHTML() : t === 'pad' ? padSheetHTML() : t === 'item' ? itemSheetHTML() : t === 'picker' ? pickerHTML() : t === 'add' ? addSheetHTML() : t === 'photo' ? photoSheetHTML() : t === 'cats' ? catsSheetHTML() : t === 'shipreview' ? shipReviewHTML() : t === 'ship' ? shipSheetHTML() : textSheetHTML();
+  s.innerHTML = t === 'team' ? teamSheetHTML() : t === 'shopcode' ? shopCodeHTML() : t === 'pad' ? padSheetHTML() : t === 'print' ? printSheetHTML() : t === 'item' ? itemSheetHTML() : t === 'picker' ? pickerHTML() : t === 'add' ? addSheetHTML() : t === 'photo' ? photoSheetHTML() : t === 'cats' ? catsSheetHTML() : t === 'shipreview' ? shipReviewHTML() : t === 'ship' ? shipSheetHTML() : textSheetHTML();
 }
 function showSheet() { renderSheet(); $('sheet').hidden = false; $('scrim').hidden = false; if (sheet && sheet.type === 'text') { var b = $('txt-box'); if (b) { b.focus(); b.select(); } } }
 function closeSheet() {
@@ -1477,6 +1570,8 @@ document.addEventListener('click', function (ev) {
     toast('Added');
   }
   else if (a === 'copylist') copyText(textFor(d.loc));
+  else if (a === 'printlist') { sheet = { type: 'print', loc: d.loc }; showSheet(); fitPaper(); setTimeout(fitPaper, 300); }
+  else if (a === 'printnow' && sheet && sheet.type === 'print') doPrint();
   else if (a === 'copyboard') copyText(boardText());
   else if (a === 'csv') exportCsv(d.loc);
 });
