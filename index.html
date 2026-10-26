@@ -189,10 +189,10 @@ body.hassel main { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)
 .wstep { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 48px; border: 1px solid var(--line); border-radius: 6px; padding: 0 4px; background: var(--bg); }
 .wstep b { font-family: var(--font-display); font-size: 24px; font-variant-numeric: tabular-nums; }
 .wellcard { border: 1px solid var(--line); border-left: 8px solid var(--wc); border-radius: 8px; padding: 10px; display: grid; gap: 8px; }
-.wellrow { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 8px; }
+.wellrow { display: grid; grid-template-columns: minmax(0, 1fr) 122px; gap: 8px; }
 .wellg { position: relative; }
 .wellg span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--ink-2); pointer-events: none; }
-.wellg .field { padding-right: 46px; }
+.wellg .field { padding-right: 58px; }
 .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
 .sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); padding: 0; }
 .sw.on { outline: 3px solid var(--ink); outline-offset: 2px; }
@@ -923,11 +923,11 @@ function wellDots(pd, max) {
 function padBarHTML(crew, compact) {
   var pd = padOf(crew);
   if (!pd) return '<button type="button" class="padbar empty' + (compact ? ' compact' : '') + '" data-act="pad" data-crew="' + crew + '">' + (compact ? '<span class="padcrew">' + esc(names[crew]) + '</span>' : '<span class="padlbl">Pad</span>') + '<span class="padnm">+ Add pad</span></button>';
-  var nw = (pd.wells || []).length, g = padGuns(pd);
+  var nw = (pd.wells || []).length;
   return '<button type="button" class="padbar' + (compact ? ' compact' : '') + '" data-act="pad" data-crew="' + crew + '">' +
     (compact ? '<span class="padcrew">' + esc(names[crew]) + '</span>' : '<span class="padlbl">Pad</span>') +
     '<span class="padnm">' + esc(pd.name) + '</span>' +
-    '<span class="padmeta">' + wellDots(pd) + '<span>' + nw + ' well' + (nw === 1 ? '' : 's') + (g ? ' · ' + g + ' guns' : '') + '</span></span>' +
+    '<span class="padmeta">' + wellDots(pd) + '<span>' + nw + ' well' + (nw === 1 ? '' : 's') + '</span></span>' +
     '<span class="padgo" aria-hidden="true">›</span></button>';
 }
 function boardHTML() {
@@ -1131,21 +1131,21 @@ function mapsLink(coords) {
   return m ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(m[1] + ',' + m[2]) : '';
 }
 function padSheetHTML() {
-  var d = sheet.draft, crew = sheet.crew, total = padGuns(d), ml = mapsLink(d.coords);
+  var d = sheet.draft, crew = sheet.crew, ml = mapsLink(d.coords);
   var h = '<div class="grab"></div><div class="stack"><div><h2>' + esc(names[crew]) + ' pad</h2><p class="meta" style="margin:0">Everyone on ' + esc(names[crew]) + ' and the shop sees this.</p></div>' +
     '<div><label class="lbl" for="pad-name">Pad name</label><input id="pad-name" class="field" type="text" maxlength="60" autocapitalize="characters" placeholder="EOG WHITACRE" value="' + esc(d.name) + '"></div>' +
     '<div><label class="lbl" for="pad-coords">Coordinates</label><input id="pad-coords" class="field" type="text" maxlength="80" inputmode="text" placeholder="31.8457, -102.3676" value="' + esc(d.coords) + '">' +
     (ml ? '<a class="maplink" href="' + ml + '" target="_blank" rel="noopener">Open in Maps ›</a>' : '') + '</div>' +
-    '<div class="padrow2"><div><label class="lbl" for="pad-guns">Guns per well</label><input id="pad-guns" class="field" type="number" inputmode="numeric" min="0" max="999" value="' + esc(d.guns) + '"></div>' +
+    '<div class="padrow2"><div><label class="lbl" for="pad-guns">Guns per stage</label><input id="pad-guns" class="field" type="number" inputmode="numeric" min="0" max="999" value="' + esc(d.guns) + '"></div>' +
     '<div><label class="lbl">Wells</label><div class="wstep"><button type="button" class="qbtn" data-act="wellcount" data-d="-1" aria-label="Fewer wells"' + (d.wells.length ? '' : ' disabled') + '>−</button><b>' + d.wells.length + '</b><button type="button" class="qbtn" data-act="wellcount" data-d="1" aria-label="More wells"' + (d.wells.length >= 30 ? ' disabled' : '') + '>+</button></div></div></div>';
-  if (d.wells.length) h += '<p class="hint" style="margin:0">' + d.wells.length + ' wells · ' + total + ' guns total. Change a well’s guns if it’s different.</p>';
+  if (d.wells.length) h += '<p class="hint" style="margin:0">Guns are per stage. If one well shoots a different number, change it in that well’s box.</p>';
   d.wells.forEach(function (w, i) {
     var c = WCMAP[w.color];
     h += '<div class="wellcard" style="--wc:' + (c ? c[2] : 'var(--line)') + '"><div class="wellrow"><input id="well-n-' + i + '" class="field" type="text" maxlength="40" aria-label="Well ' + (i + 1) + ' name" value="' + esc(w.name) + '">' +
-      '<div class="wellg"><input id="well-g-' + i + '" class="field" type="number" inputmode="numeric" min="0" max="999" aria-label="Guns for well ' + (i + 1) + '" value="' + esc(w.guns) + '"><span>guns</span></div></div>' +
+      '<div class="wellg"><input id="well-g-' + i + '" class="field" type="number" inputmode="numeric" min="0" max="999" aria-label="Guns per stage for well ' + (i + 1) + '" value="' + esc(w.guns) + '"><span>/stage</span></div></div>' +
       '<div class="swatches" role="group" aria-label="Well ' + (i + 1) + ' color">' + WELL_COLORS.map(function (col) {
         return '<button type="button" class="sw' + (w.color === col[0] ? ' on' : '') + '" style="background:' + col[2] + '" data-act="wellcolor" data-i="' + i + '" data-c="' + col[0] + '" aria-label="' + col[1] + '" aria-pressed="' + (w.color === col[0]) + '"></button>';
-      }).join('') + '</div>' + (c ? '<span class="wcname">' + c[1] + '</span>' : '<span class="wcname muted">Pick a color</span>') + (w.custom ? '<span class="wcname">· ' + w.guns + ' guns (different)</span>' : '') + '</div>';
+      }).join('') + '</div>' + (c ? '<span class="wcname">' + c[1] + '</span>' : '<span class="wcname muted">Pick a color</span>') + (w.custom ? '<span class="wcname">· ' + w.guns + ' guns per stage (different)</span>' : '') + '</div>';
   });
   h += '<div class="foot"><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-act="padsave">Save pad</button></div>';
   if (padOf(crew)) h += '<button type="button" class="btn danger ghost" data-act="padclear" style="align-self:center">' + (sheet.clearArm ? 'Tap again to clear this pad' : 'Clear pad (moved to a new location)') + '</button>';
