@@ -1,5 +1,5 @@
 /* Liberty Parts offline cache. VERSION is stamped on every deploy. */
-const VERSION = 'wl-1793583976';
+const VERSION = 'wl-1793730232';
 const SHELL = ['./', 'index.html', 'config.js', 'firebase-app-compat.js', 'firebase-firestore-compat.js', 'firebase-auth-compat.js',
   'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', (e) => {
